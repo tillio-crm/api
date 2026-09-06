@@ -1,0 +1,9 @@
+parameters:
+    level: 8
+    paths:
+        - src
+        - tests
+    # Typy z PHPDoc traktujemy jako deklarację, nie pewnik - kod defensywny
+    # (np. array_values na wejściu od konsumenta) ma prawo sprawdzać to,
+    # co adnotacja tylko obiecuje.
+    treatPhpDocTypesAsCertain: false
