@@ -7,7 +7,11 @@ Wersjonowanie: semver (przed 1.0.0 zmiany łamiące = minor).
 
 ## [Unreleased]
 
-Brak zmian.
+### Naprawione
+
+- Domyślny adres API w trybie bezpośrednim wskazuje właściwy serwer SaaS:
+  `https://s2.public.api.tillio.app`. Poprzedni adres uniemożliwiał poprawne
+  połączenie z domyślną konfiguracją. Zaktualizowano przykłady konfiguracji.
 
 ## [0.1.0] - 2026-09-06
 

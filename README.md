@@ -75,7 +75,7 @@ $client = new TillioClient([
     'apiKey'       => 'MojaIntegracja:sekret',       // format nazwa:klucz (jak w API v1)
     'tenantDomain' => 'firma.tillio.app',            // nagłówek X-Tenant-Domain
     'tenantId'     => 'firma-abc123',                // nagłówek X-Tenant-Id
-    // 'server'       => 'https://public.api.tillio.app',  // domyślny prod
+    // 'server'       => 'https://s2.public.api.tillio.app',  // domyślny SaaS
     // 'instanceName' => 'firma.tillio.app',         // TYLKO serwer wieloinstancyjny (np. dev) - patrz niżej
 ]);
 

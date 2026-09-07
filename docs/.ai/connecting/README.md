@@ -33,7 +33,7 @@ $client = new TillioClient([
     'apiKey'       => 'MojaIntegracja:sekret',   // format nazwa:klucz
     'tenantDomain' => 'firma.tillio.app',
     'tenantId'     => 'firma-abc123',
-    // 'server'    => 'https://public.api.tillio.app',  // domyslny prod - pomin
+    // 'server'    => 'https://s2.public.api.tillio.app',  // domyslny SaaS - pomin
 ]);
 ```
 

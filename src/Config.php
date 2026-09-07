@@ -41,7 +41,7 @@ use TillioCrm\Api\Transport\TransportInterface;
 final class Config
 {
     /** Domyślny produkcyjny adres API v2 (tryb bezpośredni). */
-    public const string DEFAULT_SERVER_DIRECT = 'https://public.api.tillio.app';
+    public const string DEFAULT_SERVER_DIRECT = 'https://s2.public.api.tillio.app';
 
     /** Domyślny produkcyjny adres platformy apek (tryb proxy). */
     public const string DEFAULT_SERVER_PROXY = 'https://apps.tillio.app';
