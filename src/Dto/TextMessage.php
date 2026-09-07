@@ -5,18 +5,18 @@ declare(strict_types=1);
 namespace TillioCrm\Api\Dto;
 
 /**
- * Wiadomosc SMS (odczyt). Ten sam rekord co zakladaja integracje bramek SMS;
- * z kazda wiadomoscia powstaje notatka na kartotece (noteIds). Dostepne od
+ * Wiadomość SMS (odczyt). Ten sam rekord co zakładają integracje bramek SMS;
+ * z każdą wiadomością powstaje notatka na kartotece (noteIds). Dostępne od
  * wersji API 2.10.0.
  */
 final readonly class TextMessage
 {
     /**
-     * @param 'inbound'|'outbound'|string|null                       $direction     kierunek wiadomosci
-     * @param 'received'|'sent'|'delivered'|'failed'|string|null     $status        status wiadomosci
-     * @param list<int>            $contractorIds powiazane kartoteki kontrahentow
-     * @param list<int>            $noteIds       notatki powstale z wiadomosci
-     * @param array<string, mixed> $raw           pelny rekord z API
+     * @param 'inbound'|'outbound'|string|null                       $direction     kierunek wiadomości
+     * @param 'received'|'sent'|'delivered'|'failed'|string|null     $status        status wiadomości
+     * @param list<int>            $contractorIds powiązane kartoteki kontrahentów
+     * @param list<int>            $noteIds       notatki powstałe z wiadomości
+     * @param array<string, mixed> $raw           pełny rekord z API
      */
     public function __construct(
         public int $id,
@@ -68,7 +68,7 @@ final readonly class TextMessage
     }
 
     /**
-     * Pelny, surowy rekord z API.
+     * Pełny, surowy rekord z API.
      *
      * @return array<string, mixed>
      */

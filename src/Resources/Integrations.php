@@ -7,8 +7,8 @@ namespace TillioCrm\Api\Resources;
 use TillioCrm\Api\Dto\TillioCallsIntegration;
 
 /**
- * Integracje instancji z uslugami zewnetrznymi. Na razie Tillio Calls
- * (telefonia): odczyt stanu, rejestracja i usuniecie. Wymaga API >= 2.11.0.
+ * Integracje instancji z usługami zewnętrznymi. Na razie Tillio Calls
+ * (telefonia): odczyt stanu, rejestracja i usunięcie. Wymaga API >= 2.11.0.
  */
 final readonly class Integrations extends Resource
 {
@@ -34,7 +34,7 @@ final readonly class Integrations extends Resource
     }
 
     /**
-     * `DELETE /v2/integrations/tillio-calls` - usuniecie integracji Tillio Calls.
+     * `DELETE /v2/integrations/tillio-calls` - usunięcie integracji Tillio Calls.
      */
     public function deleteTillioCalls(): void
     {

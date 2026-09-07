@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace TillioCrm\Api\Dto;
 
 /**
- * Wiadomosc SMS do zapisu. Przy tworzeniu API wymaga source, sourceId,
- * direction, status, remoteNumber, body, sentAt. Dostepne od wersji API 2.10.0.
+ * Wiadomość SMS do zapisu. Przy tworzeniu API wymaga source, sourceId,
+ * direction, status, remoteNumber, body, sentAt. Dostępne od wersji API 2.10.0.
  */
 final readonly class TextMessageInput implements Arrayable
 {
     /**
-     * @param 'inbound'|'outbound'|string|null                   $direction     kierunek wiadomosci
-     * @param 'received'|'sent'|'delivered'|'failed'|string|null $status        status wiadomosci
-     * @param string|null                                        $body          tresc, do 1024 znakow
+     * @param 'inbound'|'outbound'|string|null                   $direction     kierunek wiadomości
+     * @param 'received'|'sent'|'delivered'|'failed'|string|null $status        status wiadomości
+     * @param string|null                                        $body          treść, do 1024 znaków
      * @param int|null                                           $creatorUserId tylko przy tworzeniu
      */
     public function __construct(

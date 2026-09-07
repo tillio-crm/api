@@ -6,12 +6,12 @@ namespace TillioCrm\Api\Dto;
 
 /**
  * Stan integracji Tillio Calls w instancji. Klucz API NIGDY nie jest zwracany
- * (tylko flaga hasApiKey). Dostepne od wersji API 2.11.0.
+ * (tylko flaga hasApiKey). Dostępne od wersji API 2.11.0.
  */
 final readonly class TillioCallsIntegration
 {
     /**
-     * @param array<string, mixed> $raw pelny rekord z API
+     * @param array<string, mixed> $raw pełny rekord z API
      */
     public function __construct(
         public ?bool $registered,
@@ -39,7 +39,7 @@ final readonly class TillioCallsIntegration
     }
 
     /**
-     * Pelny, surowy rekord z API.
+     * Pełny, surowy rekord z API.
      *
      * @return array<string, mixed>
      */

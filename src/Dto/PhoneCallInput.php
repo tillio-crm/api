@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace TillioCrm\Api\Dto;
 
 /**
- * Polaczenie do zapisu. Przy tworzeniu API wymaga source, sourceId, direction,
- * status, remoteNumber, startedAt. Dostepne od wersji API 2.10.0.
+ * Połączenie do zapisu. Przy tworzeniu API wymaga source, sourceId, direction,
+ * status, remoteNumber, startedAt. Dostępne od wersji API 2.10.0.
  */
 final readonly class PhoneCallInput implements Arrayable
 {

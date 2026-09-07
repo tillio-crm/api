@@ -9,7 +9,7 @@ use TillioCrm\Api\Dto\PhoneCallInput;
 use TillioCrm\Api\Page;
 
 /**
- * Polaczenia telefoniczne - rekordy rozmow z integracji VoIP, kazde z notatka
+ * Połączenia telefoniczne - rekordy rozmów z integracji VoIP, każde z notatką
  * na kartotece. Wymaga API >= 2.10.0.
  */
 final readonly class PhoneCalls extends Resource
@@ -32,7 +32,7 @@ final readonly class PhoneCalls extends Resource
     }
 
     /**
-     * Pelny przebieg wszystkich stron (generator, wymuszone `sort=id`).
+     * Pełny przebieg wszystkich stron (generator, wymuszone `sort=id`).
      *
      * @param array<string, mixed> $filters
      *
@@ -44,7 +44,7 @@ final readonly class PhoneCalls extends Resource
     }
 
     /**
-     * `GET /v2/phone-calls/{id}` - pojedyncze polaczenie.
+     * `GET /v2/phone-calls/{id}` - pojedyncze połączenie.
      */
     public function get(int $id): PhoneCall
     {
@@ -52,7 +52,7 @@ final readonly class PhoneCalls extends Resource
     }
 
     /**
-     * `POST /v2/phone-calls` - nowe polaczenie. Wymagane source, sourceId,
+     * `POST /v2/phone-calls` - nowe połączenie. Wymagane source, sourceId,
      * direction, status, remoteNumber, startedAt.
      *
      * @param PhoneCallInput|array<string, mixed> $input
@@ -63,7 +63,7 @@ final readonly class PhoneCalls extends Resource
     }
 
     /**
-     * `PUT /v2/phone-calls/{id}` - aktualizacja pol podanych w input.
+     * `PUT /v2/phone-calls/{id}` - aktualizacja pól podanych w input.
      *
      * @param PhoneCallInput|array<string, mixed> $input
      */

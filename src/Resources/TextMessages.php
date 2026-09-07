@@ -9,7 +9,7 @@ use TillioCrm\Api\Dto\TextMessageInput;
 use TillioCrm\Api\Page;
 
 /**
- * Wiadomosci SMS - rekordy z integracji bramek SMS, kazdy z notatka na
+ * Wiadomości SMS - rekordy z integracji bramek SMS, każdy z notatką na
  * kartotece. Wymaga API >= 2.10.0.
  */
 final readonly class TextMessages extends Resource
@@ -32,7 +32,7 @@ final readonly class TextMessages extends Resource
     }
 
     /**
-     * Pelny przebieg wszystkich stron (generator, wymuszone `sort=id`).
+     * Pełny przebieg wszystkich stron (generator, wymuszone `sort=id`).
      *
      * @param array<string, mixed> $filters
      *
@@ -44,7 +44,7 @@ final readonly class TextMessages extends Resource
     }
 
     /**
-     * `GET /v2/text-messages/{id}` - pojedyncza wiadomosc.
+     * `GET /v2/text-messages/{id}` - pojedyncza wiadomość.
      */
     public function get(int $id): TextMessage
     {
@@ -52,7 +52,7 @@ final readonly class TextMessages extends Resource
     }
 
     /**
-     * `POST /v2/text-messages` - nowa wiadomosc. Wymagane source, sourceId,
+     * `POST /v2/text-messages` - nowa wiadomość. Wymagane source, sourceId,
      * direction, status, remoteNumber, body, sentAt.
      *
      * @param TextMessageInput|array<string, mixed> $input
@@ -63,7 +63,7 @@ final readonly class TextMessages extends Resource
     }
 
     /**
-     * `PUT /v2/text-messages/{id}` - aktualizacja pol podanych w input.
+     * `PUT /v2/text-messages/{id}` - aktualizacja pól podanych w input.
      *
      * @param TextMessageInput|array<string, mixed> $input
      */

@@ -5,18 +5,18 @@ declare(strict_types=1);
 namespace TillioCrm\Api\Dto;
 
 /**
- * Polaczenie telefoniczne (odczyt). Ten sam rekord co zakladaja integracje VoIP
- * (np. Tillio Calls); z kazda rozmowa powstaje notatka na kartotece (noteIds).
- * Dostepne od wersji API 2.10.0.
+ * Połączenie telefoniczne (odczyt). Ten sam rekord co zakładają integracje VoIP
+ * (np. Tillio Calls); z każdą rozmową powstaje notatka na kartotece (noteIds).
+ * Dostępne od wersji API 2.10.0.
  */
 final readonly class PhoneCall
 {
     /**
      * @param 'inbound'|'outbound'|string|null                          $direction      kierunek rozmowy
      * @param 'answered'|'missed'|'busy'|'voicemail'|'failed'|string|null $status        status rozmowy
-     * @param list<int>            $contractorIds  powiazane kartoteki kontrahentow
-     * @param list<int>            $noteIds        notatki powstale z rozmowy
-     * @param array<string, mixed> $raw            pelny rekord z API
+     * @param list<int>            $contractorIds  powiązane kartoteki kontrahentów
+     * @param list<int>            $noteIds        notatki powstałe z rozmowy
+     * @param array<string, mixed> $raw            pełny rekord z API
      */
     public function __construct(
         public int $id,
@@ -72,7 +72,7 @@ final readonly class PhoneCall
     }
 
     /**
-     * Pelny, surowy rekord z API.
+     * Pełny, surowy rekord z API.
      *
      * @return array<string, mixed>
      */
