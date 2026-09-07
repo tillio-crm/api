@@ -26,6 +26,15 @@ Wersjonowanie: semver (przed 1.0.0 zmiany łamiące = minor).
   (2-65 znaków, litery i typowe znaki nazwisk, cyfra tylko jako pierwszy znak).
   Od API 2.12.0 obowiązuje tak samo przy tworzeniu i aktualizacji - wcześniej
   POST przepuszczał wartości, których PUT już nie przyjmował.
+- **Zmiana łamiąca:** `lookup()->phone()` zwraca w `contacts` i `contractors`
+  pełne `Contact` i `Contractor` zamiast okrojonych `PhoneLookupContact`
+  i `PhoneLookupContractor` (obie klasy usunięte). Od API 2.12.0 endpoint oddaje
+  rekordy tego samego kształtu, co `GET /v2/contacts/{id}` i `GET /v2/contractors/{id}`,
+  więc identyfikacja dzwoniącego ma od razu e-mail, stanowisko, opiekuna i pola
+  niestandardowe, bez drugiego żądania o kartotekę. Nazwy pól używanych dotąd
+  (`id`, `firstName`, `lastName`, `phone`, `contractorId`, `contractorIds`)
+  są w nowych DTO takie same; zmienia się typ. Flagę `active`, której nie ma
+  w kontrakcie kontaktu, czytasz z `$contact->raw['active']`.
 
 ### Naprawione
 

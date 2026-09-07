@@ -43,35 +43,34 @@ strukture `PhoneLookupResult` i jej elementow.
 | pole | typ | po co |
 |---|---|---|
 | `number` | ?string | Numer po sprowadzeniu do kanonu miedzynarodowego (tak, jak API go zrozumialo). Warto pokazac uzytkownikowi, na jakim numerze faktycznie szukano |
-| `contacts` | list&lt;PhoneLookupContact&gt; | Kontakty (osoby) z tym numerem w polu glownym albo alternatywnym |
-| `contractors` | list&lt;PhoneLookupContractor&gt; | Kontrahenci (firmy) z tym numerem na kartotece |
+| `contacts` | list&lt;Contact&gt; | Kontakty (osoby) z tym numerem w polu glownym albo alternatywnym, aktywne pierwsze (max 50) |
+| `contractors` | list&lt;Contractor&gt; | Kontrahenci (firmy) z tym numerem na kartotece (max 50) |
 | `raw` | array | Pelny surowy rekord z API (gdy potrzebujesz pola spoza DTO) |
 
-`PhoneLookupContact` - element listy `contacts`:
+Od API 2.12.0 obie listy niosa PELNE rekordy - dokladnie te same DTO, co
+`contacts()->get()` i `contractors()->get()`. Masz wiec od razu e-mail,
+stanowisko, opiekuna i pola niestandardowe dzwoniacego, bez drugiego zadania
+o kartoteke. Pola opisuja playbooki [contacts](../contacts/README.md)
+i [contractors](../contractors/README.md).
+
+Do identyfikacji dzwoniacego najczesciej wystarcza:
 
 | pole | typ | po co (do czego dalej) |
 |---|---|---|
-| `id` | int | Id kontaktu. To trafia jako `contactId` do `PhoneCallInput`/`TextMessageInput` |
-| `firstName` | ?string | Imie - do potwierdzenia dla uzytkownika, kto dzwoni |
-| `lastName` | ?string | Nazwisko - j.w. |
-| `phone` | ?string | Numer glowny kontaktu (po nim mogl trafic na liste) |
-| `phoneAlternative` | ?string | Numer alternatywny (po nim tez mogl trafic na liste) |
-| `contractorId` | ?int | Kartoteka macierzysta kontaktu. To trafia jako `contractorId` przy zapisie rozmowy/SMS, gdy chcesz przypiac do firmy osoby |
-| `contractorIds` | list&lt;int&gt; | Wszystkie kartoteki powiazane z kontaktem (kontakt moze byc podpiety pod wiele firm) |
-| `active` | ?bool | Czy kontakt aktywny. Nieaktywny to sygnal do ostroznosci (stary rekord) |
-| `raw` | array | Pelny surowy rekord kontaktu |
+| `contacts[]->id` | int | Id kontaktu. To trafia jako `contactId` do `PhoneCallInput`/`TextMessageInput` |
+| `contacts[]->name` | ?string | Imie i nazwisko zlozone przez API - do pokazania "kto dzwoni" |
+| `contacts[]->contractorId` | ?int | Kartoteka macierzysta kontaktu. To trafia jako `contractorId` przy zapisie rozmowy/SMS |
+| `contacts[]->contractorIds` | list&lt;int&gt; | Wszystkie kartoteki powiazane z kontaktem (moze byc podpiety pod wiele firm) |
+| `contacts[]->url` | ?string | Link "otworz w CRM" do karty kontaktu (API >= 2.12.0) - do powiadomienia dla uzytkownika |
+| `contractors[]->id` | int | Id kontrahenta. To trafia jako `contractorId` do `PhoneCallInput`/`TextMessageInput` |
+| `contractors[]->name` | ?string | Nazwa firmy - do potwierdzenia dla uzytkownika |
 
-`PhoneLookupContractor` - element listy `contractors`:
+Flaga `active` (kontakt aktywny w CRM) jest tylko w odpowiedzi lookupu, nie ma
+jej w kontrakcie kontaktu, wiec czytasz ja z `$contact->raw['active']`.
+Nieaktywny kontakt to sygnal do ostroznosci (stary rekord).
 
-| pole | typ | po co (do czego dalej) |
-|---|---|---|
-| `id` | int | Id kontrahenta. To trafia jako `contractorId` do `PhoneCallInput`/`TextMessageInput` |
-| `name` | ?string | Nazwa firmy - do potwierdzenia dla uzytkownika |
-| `phone` | ?string | Numer kartoteki, po ktorym trafil na liste |
-| `raw` | array | Pelny surowy rekord kontrahenta |
-
-Pelna lista: `src/Dto/PhoneLookupResult.php`, `src/Dto/PhoneLookupContact.php`,
-`src/Dto/PhoneLookupContractor.php`.
+Pelna lista: `src/Dto/PhoneLookupResult.php`, `src/Dto/Contact.php`,
+`src/Dto/Contractor.php`.
 
 ## Mapowanie intencji uzytkownika na dane API
 

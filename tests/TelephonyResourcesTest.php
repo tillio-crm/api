@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace TillioCrm\Api\Tests;
 
 use PHPUnit\Framework\TestCase;
+use TillioCrm\Api\Dto\Contact;
+use TillioCrm\Api\Dto\Contractor;
 use TillioCrm\Api\Dto\PhoneCall;
 use TillioCrm\Api\Dto\PhoneCallInput;
 use TillioCrm\Api\Dto\PhoneLookupResult;
@@ -211,6 +213,33 @@ final class TelephonyResourcesTest extends TestCase
         self::assertCount(1, $result->contractors);
         self::assertSame(7, $result->contractors[0]->id);
         self::assertSame('Acme', $result->contractors[0]->name);
+    }
+
+    /**
+     * Od API 2.12.0 lookup oddaje pełne rekordy kontaktu i kontrahenta, więc
+     * mapujemy je na te same DTO co reszta SDK - identyfikacja dzwoniącego ma
+     * komplet danych bez dopytywania o kartotekę.
+     */
+    public function testLookupPhoneMapsFullContactAndContractorRecords(): void
+    {
+        $this->transport->queueJson(200, '{"data":{"number":"+48601234567","contacts":[{"id":3,"firstName":"Jan","lastName":"Kowalski","name":"Jan Kowalski","position":"Prezes","email":"jan@acme.pl","phone":"+48601234567","contactStatusId":1,"ownerUserId":12,"contractorId":7,"contractorIds":["7"],"url":"https://firma.tillio.app/crm/contractors/7/#/modal=contact-read/contactId:3","customField":{"contact_text_1":"VIP"},"active":true}],"contractors":[{"id":7,"name":"Acme","phone":"+48601234567","taxId":"1234567890","url":"https://firma.tillio.app/crm/contractors/7"}]}}');
+
+        $result = $this->client()->lookup()->phone('+48601234567');
+
+        $contact = $result->contacts[0];
+        self::assertInstanceOf(Contact::class, $contact);
+        self::assertSame('jan@acme.pl', $contact->email);
+        self::assertSame('Prezes', $contact->position);
+        self::assertSame(12, $contact->ownerUserId);
+        self::assertSame(['contact_text_1' => 'VIP'], $contact->customField);
+        self::assertSame('https://firma.tillio.app/crm/contractors/7/#/modal=contact-read/contactId:3', $contact->url);
+        // `active` jest tylko w odpowiedzi lookupu, nie w kontrakcie kontaktu - zostaje w raw.
+        self::assertTrue($contact->raw['active']);
+
+        $contractor = $result->contractors[0];
+        self::assertInstanceOf(Contractor::class, $contractor);
+        self::assertSame('1234567890', $contractor->taxId);
+        self::assertSame('https://firma.tillio.app/crm/contractors/7', $contractor->url);
     }
 
     public function testTillioCallsReadDoesNotExposeApiKey(): void
