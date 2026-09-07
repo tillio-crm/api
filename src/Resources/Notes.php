@@ -25,10 +25,13 @@ final readonly class Notes extends Resource
     /**
      * `GET /v2/notes` - strona listy.
      *
-     * Filtry (komplet wg kontraktu): `contractorId`, `contactId`, `noteTypeId`
-     * (typy: `dictionaries()->noteTypes()`), `title`,
-     * `createdAfter`/`createdBefore`, `customField[klucz]`, `sort`/`sortDir`,
-     * `page`/`limit`.
+     * Filtry (komplet wg kontraktu): `id`, `contractorId`, `contactId`, `leadId`,
+     * `serviceId`, `pipelineId`, `noteTypeId` (typy: `dictionaries()->noteTypes()`),
+     * `title`, `body`, `pinned`, `creatorUserId`, `createdAfter`/`createdBefore`,
+     * `customField[klucz]`, `sort`/`sortDir`, `page`/`limit`.
+     *
+     * `id`, `leadId`, `serviceId`, `pipelineId`, `body`, `pinned` i `creatorUserId`
+     * wymagają API >= 2.12.2 - starsza instancja odrzuci nieznany parametr błędem 400.
      *
      * @param array<string, mixed> $filters
      *

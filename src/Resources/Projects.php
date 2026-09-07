@@ -17,9 +17,13 @@ final readonly class Projects extends Resource
     /**
      * `GET /v2/projects` - strona listy.
      *
-     * Filtry (komplet wg kontraktu): `contractorId`, `projectStatusId`, `name`,
-     * `archived`, `updatedAfter`/`updatedBefore`, `createdAfter`/`createdBefore`,
+     * Filtry (komplet wg kontraktu): `id`, `contractorId`, `projectStatusId`,
+     * `name`, `description`, `archived`, `ownerUserId`, `creatorUserId`,
+     * `updatedAfter`/`updatedBefore`, `createdAfter`/`createdBefore`,
      * `customField[klucz]`, `sort`/`sortDir`, `page`/`limit`.
+     *
+     * `id`, `description`, `ownerUserId` i `creatorUserId` wymagają API >= 2.12.2 -
+     * starsza instancja odrzuci nieznany parametr błędem 400.
      *
      * @param array<string, mixed> $filters
      *

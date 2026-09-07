@@ -5,6 +5,21 @@ z perspektywy konsumenta SDK; wpisy grupowane per wydanie (przy 0.1.0 wszystko
 jest nowe, od kolejnych wydań sekcje Dodane/Zmienione/Naprawione).
 Wersjonowanie: semver (przed 1.0.0 zmiany łamiące = minor).
 
+## [Unreleased]
+
+### Zmienione
+
+- Mapa tras zweryfikowana 1:1 z kontraktem API **2.12.4** (dalej 230 tras).
+- Udokumentowane nowe filtry list z API 2.12.2 (SDK przekazuje filtry bez własnej
+  białej listy, więc działały od razu - PHPDoc deklaruje "komplet wg kontraktu"
+  i musiał nadążyć): `notes()->list()` o `id`, `leadId`, `serviceId`, `pipelineId`,
+  `body`, `pinned`, `creatorUserId`; `projects()->list()` o `id`, `description`,
+  `ownerUserId`, `creatorUserId`; `services()->list()` o `id`, `catalogId`,
+  `catalogName`, `billingPeriodId`, `paymentTermId`, `invoiceTypeId`, `salesUserId`,
+  `ownerUserId`, `place`, `note`; `serviceCatalog()->list()` o `id`, `currency`,
+  `groupName`. Wymagają API >= 2.12.2 - starsza instancja odrzuca nieznany
+  parametr błędem 400.
+
 ## [0.2.0] - 2026-09-07
 
 Wydanie z poprawką adresu domyślnego serwera (0.1.0 nie łączyło się z domyślną

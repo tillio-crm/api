@@ -19,8 +19,11 @@ final readonly class ServiceCatalog extends Resource
     /**
      * `GET /v2/service/catalog` - strona listy pozycji katalogu.
      *
-     * Filtry (komplet wg kontraktu): `active`, `name`, `groupId`,
-     * `sort`/`sortDir`, `page`/`limit`.
+     * Filtry (komplet wg kontraktu): `id`, `active`, `name`, `currency`,
+     * `groupId`, `groupName`, `sort`/`sortDir`, `page`/`limit`.
+     *
+     * `id`, `currency` i `groupName` wymagają API >= 2.12.2 - starsza instancja
+     * odrzuci nieznany parametr błędem 400.
      *
      * @param array<string, mixed> $filters
      *

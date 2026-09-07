@@ -18,10 +18,15 @@ final readonly class Services extends Resource
     /**
      * `GET /v2/services` - strona listy.
      *
-     * Filtry (komplet wg kontraktu): `contractorId`, `serviceStatusId`,
-     * `customName`, `currency`, `updatedAfter`/`updatedBefore`,
-     * `createdAfter`/`createdBefore`, `customField[klucz]`, `sort`/`sortDir`,
-     * `page`/`limit`.
+     * Filtry (komplet wg kontraktu): `id`, `contractorId`, `serviceStatusId`,
+     * `customName`, `currency`, `catalogId`, `catalogName`, `billingPeriodId`,
+     * `paymentTermId`, `invoiceTypeId`, `salesUserId`, `ownerUserId`, `place`,
+     * `note`, `updatedAfter`/`updatedBefore`, `createdAfter`/`createdBefore`,
+     * `customField[klucz]`, `sort`/`sortDir`, `page`/`limit`.
+     *
+     * `id`, `catalogId`, `catalogName`, `billingPeriodId`, `paymentTermId`,
+     * `invoiceTypeId`, `salesUserId`, `ownerUserId`, `place` i `note` wymagają
+     * API >= 2.12.2 - starsza instancja odrzuci nieznany parametr błędem 400.
      *
      * @param array<string, mixed> $filters
      *

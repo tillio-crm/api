@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace TillioCrm\Api;
 
 /**
- * KOMPLETNA mapa tras API v2 (230 tras, kontrakt 2.12.1) na metody SDK -
+ * KOMPLETNA mapa tras API v2 (230 tras, kontrakt 2.12.4) na metody SDK -
  * kręgosłup gwarancji
  * pokrycia 100% tras. Test `RouteCoverageTest` pilnuje, żeby każdy wpis
  * wskazywał istniejącą, publiczną metodę, a po pobraniu specyfikacji instancji
