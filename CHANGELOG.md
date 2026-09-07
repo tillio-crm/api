@@ -13,6 +13,15 @@ Wersjonowanie: semver (przed 1.0.0 zmiany łamiące = minor).
   `https://s2.public.api.tillio.app`. Poprzedni adres uniemożliwiał poprawne
   połączenie z domyślną konfiguracją. Zaktualizowano przykłady konfiguracji.
 
+### Bezpieczeństwo
+
+- `download()` przyjmuje wyłącznie adresy HTTP(S) z hostem i bez poświadczeń
+  w URL-u; adres jest sprawdzany przed wysyłką. Wcześniej pełny adres szedł
+  wprost do cURL, więc `file://` w adresie oddawał zawartość lokalnego pliku,
+  a inne schematy pozwalały odpytać usługi wewnętrzne - ryzyko realne wtedy,
+  gdy aplikacja przekazuje do `download()` adres pochodzący od użytkownika.
+  Niezależnie od tego transport ogranicza cURL do HTTP(S) dla każdego żądania.
+
 ## [0.1.0] - 2026-09-06
 
 Pierwsze wydanie. Wymaga Tillio API v2 w wersji **co najmniej 2.0.4**

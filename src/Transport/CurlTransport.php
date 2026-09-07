@@ -19,6 +19,14 @@ use TillioCrm\Api\Exception\TransportException;
  */
 final class CurlTransport implements TransportInterface
 {
+    /**
+     * Zamek protokołów - liczony raz na proces (odpowiedź `curl_version()` nie
+     * zmienia się w trakcie jego życia).
+     *
+     * @var array<int, int|string>|null
+     */
+    private static ?array $protocolOptions = null;
+
     public function __construct(private readonly Config $config)
     {
     }
@@ -35,7 +43,7 @@ final class CurlTransport implements TransportInterface
             CURLOPT_TIMEOUT_MS => (int) round($this->config->timeout * 1000),
             CURLOPT_CONNECTTIMEOUT_MS => (int) round($this->config->connectTimeout * 1000),
             CURLOPT_HTTPHEADER => $prepared['headers'],
-        ];
+        ] + self::protocolOptions();
 
         if ($this->config->caFile !== null) {
             // Windows CLI często nie ma skonfigurowanego `curl.cainfo` - bez tego
@@ -157,6 +165,43 @@ final class CurlTransport implements TransportInterface
             'headers' => $headers,
             'postFields' => $postFields,
         ];
+    }
+
+    /**
+     * Ogranicza cURL do HTTP(S) - również dla ewentualnych przekierowań.
+     *
+     * Domyślnie libcurl dopuszcza wszystko, co ma wkompilowane (`file`, `ftp`,
+     * `dict`, `scp`...). SDK wysyła wyłącznie HTTP(S), więc reszta jest tu tylko
+     * powierzchnią ataku: przy adresie z zewnątrz (`download()`) `file://` czytałoby
+     * lokalne pliki procesu. Filtr adresu stoi wyżej, w `TillioClient::download()`;
+     * ten zamek jest drugą warstwą - obowiązuje KAŻDE żądanie tego transportu,
+     * niezależnie od tego, którędy adres do niego trafił.
+     *
+     * `CURLOPT_PROTOCOLS_STR` wymaga libcurl >= 7.85; na starszych ta sama blokada
+     * idzie wycofywaną już bitmaską, żeby nie zostawić luki na wersjach LTS.
+     *
+     * @return array<int, int|string>
+     */
+    private static function protocolOptions(): array
+    {
+        if (self::$protocolOptions !== null) {
+            return self::$protocolOptions;
+        }
+
+        $version = curl_version();
+        $number = is_array($version) && is_int($version['version_number'] ?? null)
+            ? $version['version_number']
+            : 0;
+
+        return self::$protocolOptions = $number >= 0x075500
+            ? [
+                CURLOPT_PROTOCOLS_STR => 'http,https',
+                CURLOPT_REDIR_PROTOCOLS_STR => 'http,https',
+            ]
+            : [
+                CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+                CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+            ];
     }
 
     /**

@@ -49,6 +49,12 @@ use TillioCrm\Api\Transport\TransportRequest;
  */
 final class TillioClient
 {
+    /**
+     * Schematy dopuszczone w {@see download()}. Storage podpisuje linki HTTPS;
+     * `http` zostaje dla instalacji on-premise i środowisk deweloperskich.
+     */
+    private const array STORAGE_SCHEMES = ['http', 'https'];
+
     private readonly Config $config;
     private readonly TransportInterface $transport;
     private readonly Clock $clock;
@@ -402,13 +408,18 @@ final class TillioClient
      * UWAGA: podpisany URL żyje ~1 minutę - pobieraj od razu po odczycie metadanych,
      * a po wygaśnięciu odpytaj o metadane ponownie. Nie buforuj linku.
      *
+     * Adres jest filtrowany NA WEJŚCIU do HTTP(S) - patrz {@see assertStorageUrl()}.
+     *
      * @return string surowe bajty pliku
      *
-     * @throws TransportException          gdy nie udało się dowieźć żądania
+     * @throws TransportException          gdy adres nie jest adresem HTTP(S) albo nie udało
+     *                                     się dowieźć żądania
      * @throws UnexpectedResponseException gdy storage odpowiedział statusem błędu
      */
     public function download(string $url): string
     {
+        self::assertStorageUrl($url);
+
         $response = $this->transport->send(new TransportRequest('GET', $url, absolute: true));
 
         if ($response->status >= 400) {
@@ -619,5 +630,46 @@ final class TillioClient
 
         /** @var array<string, mixed> $decoded */
         return new ApiResponse($status, $decoded, $headers);
+    }
+
+    /**
+     * Wpuszcza do `download()` wyłącznie adresy HTTP(S).
+     *
+     * cURL sam z siebie obsługuje też `file://`, `ftp://` czy `dict://`, a ta metoda
+     * jako jedyna w SDK bierze PEŁNY adres z zewnątrz. Gdyby aplikacja konsumenta
+     * przepuściła tu adres pochodzący od swojego użytkownika, bez tego filtru
+     * `file:///etc/passwd` oddałby zawartość pliku procesu, a `http://169.254.169.254`
+     * strzeliłby w usługę wewnętrzną. Sprawdzamy PRZED wysyłką, więc żądanie
+     * z podstawionym schematem nigdy nie opuszcza procesu.
+     *
+     * Komunikat celowo nie zawiera samego adresu: podpisany URL nosi w query token
+     * pobrania i nie ma po co trafiać do logu wyjątków.
+     *
+     * @throws TransportException gdy adres nie jest adresem HTTP(S)
+     */
+    private static function assertStorageUrl(string $url): void
+    {
+        if ($url === '' || preg_match('/[\x00-\x1F\x7F]/', $url) === 1) {
+            throw new TransportException('Adres pliku jest pusty albo zawiera znaki sterujące.');
+        }
+
+        $parts = parse_url($url);
+        if ($parts === false || ($parts['host'] ?? '') === '' || !isset($parts['scheme'])) {
+            throw new TransportException(
+                'Adres pliku musi być pełnym adresem HTTP(S) z hostem (podpisany `downloadUrl` z metadanych).',
+            );
+        }
+
+        if (!in_array(strtolower($parts['scheme']), self::STORAGE_SCHEMES, true)) {
+            throw new TransportException(sprintf(
+                'Schemat "%s" jest w download() niedozwolony - dopuszczone wyłącznie: %s.',
+                strtolower($parts['scheme']),
+                implode(', ', self::STORAGE_SCHEMES),
+            ));
+        }
+
+        if (isset($parts['user']) || isset($parts['pass'])) {
+            throw new TransportException('Adres pliku nie może nieść poświadczeń w formie "user:hasło@host".');
+        }
     }
 }

@@ -327,4 +327,77 @@ final class ClientRequestTest extends TestCase
         $this->expectExceptionMessage('wygasn');
         $this->client()->download('https://storage.example.test/plik?sig=stary');
     }
+
+    /**
+     * `download()` bierze pełny adres z zewnątrz - jedyne takie miejsce w SDK.
+     * Gdyby aplikacja konsumenta przepuściła tu adres od swojego użytkownika,
+     * cURL bez filtru obsłużyłby też `file://` (odczyt plików procesu) i schematy
+     * strzelające w usługi wewnętrzne. Odrzucamy PRZED wysyłką.
+     */
+    public function testDownloadRejectsSchemesOtherThanHttp(): void
+    {
+        $blocked = [
+            'file:///C:/Windows/win.ini',
+            'file://localhost/etc/passwd',
+            'ftp://storage.example.test/plik.pdf',
+            'dict://127.0.0.1:11211/stat',
+            'gopher://127.0.0.1:6379/_INFO',
+            'FILE:///etc/passwd',
+        ];
+
+        foreach ($blocked as $url) {
+            try {
+                $this->client()->download($url);
+                self::fail(sprintf('Adres "%s" powinien zostać odrzucony przed wysyłką.', $url));
+            } catch (TransportException) {
+                // oczekiwane
+            }
+        }
+
+        // Nic z tego nie może opuścić procesu - filtr stoi przed transportem.
+        self::assertSame([], $this->transport->requests);
+    }
+
+    public function testDownloadRejectsMalformedUrlsAndCredentials(): void
+    {
+        $blocked = [
+            '',
+            'storage.example.test/plik',            // bez schematu
+            '//storage.example.test/plik',          // bez schematu
+            'https:///plik',                        // bez hosta
+            'https://uzytkownik:haslo@storage.example.test/plik',
+            "https://storage.example.test/plik\r\nX-Wstrzykniety: 1",
+        ];
+
+        foreach ($blocked as $url) {
+            try {
+                $this->client()->download($url);
+                self::fail(sprintf('Adres "%s" powinien zostać odrzucony przed wysyłką.', $url));
+            } catch (TransportException) {
+                // oczekiwane
+            }
+        }
+
+        self::assertSame([], $this->transport->requests);
+    }
+
+    /** Komunikat odmowy nie może wnieść podpisu pobrania do logu wyjątków. */
+    public function testDownloadRejectionKeepsSignatureOutOfTheMessage(): void
+    {
+        try {
+            $this->client()->download('ftp://storage.example.test/plik?signature=TAJNY_PODPIS');
+            self::fail('Adres ftp:// powinien zostać odrzucony.');
+        } catch (TransportException $e) {
+            self::assertStringNotContainsString('TAJNY_PODPIS', $e->getMessage());
+            self::assertStringContainsString('ftp', $e->getMessage());
+        }
+    }
+
+    /** Storage on-premise bywa wystawiony po zwykłym HTTP - tego nie blokujemy. */
+    public function testDownloadAllowsPlainHttpForOnPremiseStorage(): void
+    {
+        $this->transport->queue(new TransportResponse(200, 'tresc'));
+
+        self::assertSame('tresc', $this->client()->download('http://storage.firma.local/plik?sig=abc'));
+    }
 }

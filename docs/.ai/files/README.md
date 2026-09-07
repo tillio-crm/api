@@ -43,6 +43,12 @@ $bytes = $client->download($document->downloadUrl);   // surowe bajty pliku
 Nie buforuj `downloadUrl` - po wygaśnięciu odczytaj metadane ponownie.
 `downloadUrl === null` znaczy "srodowisko bez podpisywania", nie "brak pliku".
 
+`download()` przyjmuje wyłącznie adresy `http`/`https` z hostem i bez poświadczeń
+w URL-u; cokolwiek innego (np. `file://`) leci `TransportException` jeszcze przed
+wysyłką. To zabezpieczenie na wypadek, gdyby adres w Twojej aplikacji dało się
+podmienić z zewnątrz - podawaj tu `downloadUrl` z metadanych, nie adres od
+użytkownika.
+
 ## DMS: dokumenty kontrahenta
 
 ```php
