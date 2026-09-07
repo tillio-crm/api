@@ -5,7 +5,11 @@ z perspektywy konsumenta SDK; wpisy grupowane per wydanie (przy 0.1.0 wszystko
 jest nowe, od kolejnych wydań sekcje Dodane/Zmienione/Naprawione).
 Wersjonowanie: semver (przed 1.0.0 zmiany łamiące = minor).
 
-## [Unreleased]
+## [0.2.0] - 2026-09-07
+
+Wydanie z poprawką adresu domyślnego serwera (0.1.0 nie łączyło się z domyślną
+konfiguracją) i dostosowaniem do kontraktu API 2.12.1. Minor, nie patch, bo
+`lookup()->phone()` zmienia typy zwracanych rekordów - szczegóły w Zmienione.
 
 ### Dodane
 
@@ -116,5 +120,6 @@ Pierwsze wydanie. Wymaga Tillio API v2 w wersji **co najmniej 2.0.4**
 - Selfcheck z raportem (HTTP 500 z raportem dryfu to wynik, nie awaria),
   `health()`, `whoami()`, `openapi()`, `modules()`.
 
-[Unreleased]: https://github.com/tillio-crm/api/compare/0.1.0...HEAD
+[Unreleased]: https://github.com/tillio-crm/api/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/tillio-crm/api/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/tillio-crm/api/releases/tag/0.1.0

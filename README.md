@@ -51,7 +51,9 @@ jednorazowe hasła) są zneutralizowane w kodzie, zanim żądanie w ogóle wyjdz
   **2.4.0**, pliki pól niestandardowych typu FILE od **2.6.0**, komentarze
   zadań i załączniki szablonów maili od **2.7.0**, kontakty przy notatkach,
   zadaniach i wydarzeniach od **2.8.0**, połączenia telefoniczne, SMS i lookup
-  po numerze od **2.10.0**, integracja Tillio Calls od **2.11.0**. Wywołanie
+  po numerze od **2.10.0**, integracja Tillio Calls od **2.11.0**, linki
+  "otwórz w CRM" (`Note::$url`, `Contact::$url`) i pełne rekordy w lookupie
+  po numerze od **2.12.0**. Wywołanie
   funkcji, której CRM instalacji jeszcze nie ma, kończy się `FeatureNotSupportedException`
   (501); trasy spoza wersji API - błędem 404.
 
