@@ -37,3 +37,4 @@ desktop.ini
 
 # Robocze pliki sesji - nigdy do repo
 HANDOFF-*.md
+/tasks/
