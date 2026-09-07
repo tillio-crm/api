@@ -11,6 +11,10 @@ namespace TillioCrm\Api\Dto;
 final readonly class Lead
 {
     /**
+     * @param string|null          $lastName    nazwisko osoby kontaktowej; PRZY ZAPISIE musi przejść
+     *                                          walidację CRM: 2-65 znaków - litery, spacje, myślnik,
+     *                                          apostrof, kropka, przecinek, a cyfra tylko jako pierwszy
+     *                                          znak. Od API 2.12.0 tak samo przy tworzeniu i aktualizacji
      * @param array<string, mixed> $customField wartości pól niestandardowych
      * @param list<string>         $emails      adresy e-mail leada
      * @param array<string, mixed> $raw         pełny rekord z API

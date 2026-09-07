@@ -11,6 +11,10 @@ namespace TillioCrm\Api\Dto;
 final readonly class Note
 {
     /**
+     * @param string|null          $url         adres notatki na osi czasu kartoteki w CRM - do
+     *                                          powiadomień i linków "otwórz w CRM" (od API 2.12.0).
+     *                                          Notatka nie ma własnej strony, więc wisząca na samym
+     *                                          kontakcie albo na leadzie ma tu `null`
      * @param list<int>            $contactIds  osoby kontaktowe przypięte do notatki (od API 2.8.0)
      * @param array<string, mixed> $customField wartości pól niestandardowych
      * @param array<string, mixed> $raw         pełny rekord z API
@@ -28,6 +32,7 @@ final readonly class Note
         public ?int $creatorUserId,
         public ?string $noteDate,
         public ?string $createdAt,
+        public ?string $url,
         public array $contactIds,
         public array $customField,
         public array $raw = [],
@@ -52,6 +57,7 @@ final readonly class Note
             creatorUserId: Cast::int($row['creatorUserId'] ?? null),
             noteDate: Cast::string($row['noteDate'] ?? null),
             createdAt: Cast::string($row['createdAt'] ?? null),
+            url: Cast::string($row['url'] ?? null),
             contactIds: Cast::intList($row['contactIds'] ?? null),
             customField: Cast::map($row['customField'] ?? null),
             raw: $row,

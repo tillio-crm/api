@@ -10,6 +10,7 @@ use TillioCrm\Api\Dto\AddressInput;
 use TillioCrm\Api\Dto\CalendarEvent;
 use TillioCrm\Api\Dto\CalendarEventInput;
 use TillioCrm\Api\Dto\CategoryInput;
+use TillioCrm\Api\Dto\Contact;
 use TillioCrm\Api\Dto\Contractor;
 use TillioCrm\Api\Dto\ContractorInput;
 use TillioCrm\Api\Dto\MailTemplateInput;
@@ -361,6 +362,22 @@ final class MasterDataDtoTest extends TestCase
         self::assertSame([7, 8], $note->contactIds);
         // Brak pola = pusta lista, nie null.
         self::assertSame([], Note::fromArray(['id' => 10])->contactIds);
+    }
+
+    /**
+     * `url` przyszło z API 2.12.0 - link "otwórz w CRM". Na starszych instancjach
+     * pola nie ma i musi wyjść null, a nie pusty string.
+     */
+    public function testNoteAndContactReadCrmUrl(): void
+    {
+        $note = Note::fromArray(['id' => 9, 'url' => 'https://firma.tillio.app/crm/contractors/121/#/tab=company/activities&noteId=904']);
+        self::assertSame('https://firma.tillio.app/crm/contractors/121/#/tab=company/activities&noteId=904', $note->url);
+        self::assertNull(Note::fromArray(['id' => 10])->url);
+
+        $contact = Contact::fromArray(['id' => 50, 'url' => 'https://firma.tillio.app/crm/contractors/121/#/modal=contact-read/contactId:50']);
+        self::assertSame('https://firma.tillio.app/crm/contractors/121/#/modal=contact-read/contactId:50', $contact->url);
+        // Kontakt bez powiązanej firmy nie ma gdzie się otworzyć - API oddaje null.
+        self::assertNull(Contact::fromArray(['id' => 51, 'url' => null])->url);
     }
 
     public function testTaskReadsContactId(): void

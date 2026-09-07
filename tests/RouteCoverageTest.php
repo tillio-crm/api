@@ -11,7 +11,7 @@ use TillioCrm\Api\RouteMap;
  * GWARANCJA POKRYCIA 100% TRAS.
  *
  * `RouteMap::MAP` jest kanonicznym obrazem specyfikacji OpenAPI API v2
- * (230 tras, kontrakt 2.11.0). Sama specyfikacja nie leży w repo - każda instancja serwuje ją
+ * (230 tras, kontrakt 2.12.1). Sama specyfikacja nie leży w repo - każda instancja serwuje ją
  * publicznie pod `GET /v2/openapi.json`, więc pełne porównanie 1:1 robi się
  * na żądanie: pobierz zrzut i wskaż go zmienną środowiskową
  * `TILLIO_OPENAPI_FILE` - test porówna mapę z plikiem. Bez tej zmiennej
@@ -52,7 +52,7 @@ final class RouteCoverageTest extends TestCase
 
     public function testRouteCountMatchesContract(): void
     {
-        // Twarda liczba ze specyfikacji (kontrakt 2.11.0). Aktualizacja
+        // Twarda liczba ze specyfikacji (kontrakt 2.12.1). Aktualizacja
         // kontraktu = świadoma zmiana tej liczby RAZEM z wpisem i implementacją.
         self::assertCount(230, RouteMap::MAP);
     }

@@ -11,7 +11,17 @@ namespace TillioCrm\Api\Dto;
 final readonly class Contact
 {
     /**
+     * @param string|null          $lastName      nazwisko; PRZY ZAPISIE musi przejść walidację CRM:
+     *                                            2-65 znaków - litery, spacje, myślnik, apostrof,
+     *                                            kropka, przecinek, a cyfra tylko jako pierwszy znak.
+     *                                            Od API 2.12.0 ta sama reguła obowiązuje przy tworzeniu
+     *                                            i aktualizacji (wcześniej POST przepuszczał wartości,
+     *                                            których PUT już nie przyjmował)
      * @param list<int>            $contractorIds kartoteki, do których osoba jest przypięta
+     * @param string|null          $url           adres karty kontaktu w CRM - do powiadomień i linków
+     *                                            "otwórz w CRM" (od API 2.12.0). Kontakt otwiera się
+     *                                            jako okno nad kartoteką firmy głównej, więc kontakt
+     *                                            bez powiązanej firmy ma tu `null`
      * @param array<string, mixed> $customField   wartości pól niestandardowych
      * @param array<string, mixed> $raw           pełny rekord z API
      */
@@ -33,6 +43,7 @@ final readonly class Contact
         public ?string $createdAt,
         public ?string $updatedAt,
         public ?string $lastActivityAt,
+        public ?string $url,
         public array $customField,
         public array $raw = [],
     ) {
@@ -61,6 +72,7 @@ final readonly class Contact
             createdAt: Cast::string($row['createdAt'] ?? null),
             updatedAt: Cast::string($row['updatedAt'] ?? null),
             lastActivityAt: Cast::string($row['lastActivityAt'] ?? null),
+            url: Cast::string($row['url'] ?? null),
             customField: Cast::map($row['customField'] ?? null),
             raw: $row,
         );

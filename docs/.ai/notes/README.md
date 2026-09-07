@@ -32,6 +32,11 @@ Odczyt notatki zwraca `Note` (`src/Dto/Note.php`) - ma pola, których `NoteInput
 nie przyjmuje (np. `leadId`, `serviceId`, `pipelineId`), bo notatka może być
 przypięta nie tylko do kontrahenta.
 
+Od API 2.12.0 `Note` niesie też `url` - link "otwórz w CRM" do notatki na osi
+czasu kartoteki. Notatka nie ma własnej strony, więc wisząca na samym kontakcie
+albo na leadzie ma tu `null`. Używaj go w powiadomieniach dla ludzi, zamiast
+sklejać adres samodzielnie.
+
 ## Mapowanie intencji użytkownika na dane API
 
 | Użytkownik mówi | Potrzebujesz | Skąd wziąć |

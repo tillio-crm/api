@@ -7,6 +7,26 @@ Wersjonowanie: semver (przed 1.0.0 zmiany łamiące = minor).
 
 ## [Unreleased]
 
+### Dodane
+
+- `Note::$url` i `Contact::$url` - gotowy link "otwórz w CRM" do notatki na osi
+  czasu kartoteki i do karty osoby (API >= 2.12.0). Przydatne w powiadomieniach
+  dla ludzi, zamiast sklejania adresu samodzielnie. Notatka bez kontrahenta
+  i kontakt bez powiązanej firmy nie mają gdzie się otworzyć i zwracają `null`;
+  na instancjach starszych niż 2.12.0 pola nie ma i też wychodzi `null`.
+
+### Zmienione
+
+- Mapa tras odpowiada kontraktowi API **2.12.1** (dalej 230 tras - w 2.12 nie
+  doszła ani nie zniknęła żadna trasa).
+- PHPDoc `PhoneCallInput::$duration`: przy statusie `answered` czas trwania
+  podawaj zawsze. Od API 2.12.0 jego brak nie jest już błędem 422, ale rozmowa
+  wypada z raportu VoIP, bo ten liczy odebrane po czasie rozmowy.
+- PHPDoc `Contact::$lastName` i `Lead::$lastName`: udokumentowana walidacja CRM
+  (2-65 znaków, litery i typowe znaki nazwisk, cyfra tylko jako pierwszy znak).
+  Od API 2.12.0 obowiązuje tak samo przy tworzeniu i aktualizacji - wcześniej
+  POST przepuszczał wartości, których PUT już nie przyjmował.
+
 ### Naprawione
 
 - Domyślny adres API w trybie bezpośrednim wskazuje właściwy serwer SaaS:

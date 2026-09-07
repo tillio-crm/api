@@ -17,7 +17,7 @@ WYMAGA szesciu pol:
 - `sourceId` (string) - identyfikator rozmowy w tym systemie, np. `'call-abc123'`,
 - `direction` (string) - `'inbound'` albo `'outbound'`,
 - `status` (string) - `'answered'`, `'missed'`, `'busy'`, `'voicemail'` albo
-  `'failed'` (status `'answered'` wymaga `duration > 0`),
+  `'failed'` (przy `'answered'` zawsze podawaj `duration` - patrz Pulapki),
 - `remoteNumber` (string) - numer drugiej strony w formacie miedzynarodowym,
 - `startedAt` (string) - moment rozpoczecia w ISO 8601.
 
@@ -45,11 +45,11 @@ Input (`PhoneCallInput`) - wszystkie pola konstruktora:
 | `source` | string | WYMAGANE. Nazwa systemu telefonii, np. `'tillio-calls'`. Stala dla danej integracji; razem z `sourceId` tworzy klucz idempotencji |
 | `sourceId` | string | WYMAGANE. Id rozmowy w systemie zrodlowym, np. `'call-abc123'`. Musi byc stabilny i unikalny w obrebie `source` |
 | `direction` | string | WYMAGANE. `'inbound'` (przychodzace) albo `'outbound'` (wychodzace) |
-| `status` | string | WYMAGANE. `'answered'`, `'missed'`, `'busy'`, `'voicemail'` albo `'failed'`. Dla `'answered'` konieczne `duration > 0` |
+| `status` | string | WYMAGANE. `'answered'`, `'missed'`, `'busy'`, `'voicemail'` albo `'failed'`. Dla `'answered'` zawsze dokladaj `duration` |
 | `remoteNumber` | string | WYMAGANE. Numer drugiej strony w formacie miedzynarodowym, np. `'+48601234567'`. Po nim rozwiazujesz kontakt przez `lookup()->phone()` |
 | `ownNumber` | ?string | Numer wlasny (linia firmowa), format miedzynarodowy. Opcjonalny, warto podac dla rozpoznania linii |
 | `startedAt` | string | WYMAGANE. Poczatek rozmowy w ISO 8601 z offsetem strefy (`DATE_ATOM`), np. `'2026-09-06T10:15:00+02:00'` |
-| `duration` | ?int | Czas trwania w sekundach. WYMAGANY (> 0) gdy `status = 'answered'`; dla nieodebranych zwykle pomijany albo 0 |
+| `duration` | ?int | Czas trwania w sekundach. Przy `status = 'answered'` podawaj zawsze - od API 2.12.0 brak czasu nie jest juz bledem, ale rozmowa wypada z raportu VoIP; dla nieodebranych pomijany albo 0 |
 | `userId` | ?int | Pracownik prowadzacy rozmowe. Rozwiaz przez `resolveUserId()` z nazwiska albo `users()->list(['email' => ...])` |
 | `contactId` | ?int | Osoba kontaktowa po drugiej stronie. Rozwiaz przez `lookup()->phone($remoteNumber)` (pole `contacts`) albo `contacts()->list([...])` |
 | `contractorId` | ?int | Kartoteka kontrahenta, do ktorej przypiac rozmowe. Z `lookup()->phone()` (`contractors` albo `contacts[].contractorId`) albo `contractors()->list([...])` |
@@ -77,7 +77,7 @@ Pelna lista: `src/Dto/PhoneCall.php` i `src/Dto/PhoneCallInput.php`.
 |---|---|---|
 | "rozmowa przychodzaca z +48601234567" | `direction: 'inbound'`, `remoteNumber` | numer wprost z polecenia/zdarzenia, w formacie miedzynarodowym |
 | "oddzwonilem do klienta" | `direction: 'outbound'` | j.w. |
-| "odebrana, trwala 3 minuty" | `status: 'answered'`, `duration: 180` | przelicz czas na sekundy; `answered` wymaga `duration > 0` |
+| "odebrana, trwala 3 minuty" | `status: 'answered'`, `duration: 180` | przelicz czas na sekundy; przy `answered` zawsze dokladaj `duration` |
 | "nieodebrane" / "poczta glosowa" | `status: 'missed'` / `'voicemail'` | z opisu zdarzenia; bez `duration` |
 | "przypnij do kontrahenta Acme" | `contractorId` | `lookup()->phone($remoteNumber)` albo `contractors()->list(['name' => 'Acme'])` |
 | "kto dzwonil" | `contactId` | `lookup()->phone($remoteNumber)`, pole `contacts` (patrz playbook [lookup](../lookup/README.md)) |
@@ -111,7 +111,7 @@ $source = 'tillio-calls';                 // stala nazwa systemu zrodlowego
 $sourceId = 'call-abc123';                // id rozmowy w tym systemie
 $remoteNumber = '+48601234567';           // format miedzynarodowy
 $startedAt = (new DateTimeImmutable('2026-09-06 10:15:00'))->format(DATE_ATOM);
-$durationSeconds = 120;                   // 2 minuty; wymagane bo status answered
+$durationSeconds = 120;                   // 2 minuty; przy answered zawsze podawaj
 
 // Krok 2: idempotencja. Ta sama rozmowa nie moze wejsc dwa razy.
 // Filtrujemy po parze source + sourceId; jesli cos jest - konczymy.
@@ -153,7 +153,7 @@ $call = $client->phoneCalls()->create(new PhoneCallInput(
     source: $source,
     sourceId: $sourceId,
     direction: 'inbound',            // przychodzaca
-    status: 'answered',              // odebrana -> duration musi byc > 0
+    status: 'answered',              // odebrana -> dokladaj duration, inaczej wypada z raportu
     remoteNumber: $remoteNumber,
     startedAt: $startedAt,
     duration: $durationSeconds,
@@ -231,9 +231,12 @@ $userId = resolveUserId($client, 'Jan', 'Kowalski');
 - **`source` + `sourceId` to klucz idempotencji.** Ta sama rozmowa dostarczona
   dwa razy (retry webhooka) zaloży dwa rekordy, jesli nie sprawdzisz wczesniej.
   Zawsze najpierw `list(['source' => ..., 'sourceId' => ...])`.
-- **`status: 'answered'` wymaga `duration > 0`.** Odebrana rozmowa bez czasu
-  trwania to 422. Dla nieodebranych (`missed`, `busy`, `voicemail`, `failed`)
-  nie ustawiaj `duration`.
+- **Przy `status: 'answered'` zawsze podawaj `duration`.** Do API 2.11 odebrana
+  rozmowa bez czasu trwania konczyla sie bledem 422. Od 2.12.0 zapisuje sie,
+  ale z ostrzezeniem - i wypada z raportu VoIP, bo ten liczy odebrane po czasie
+  rozmowy. Cichy brak w zestawieniach jest gorszy od jawnego bledu, wiec traktuj
+  `duration` jak wymagane. Dla nieodebranych (`missed`, `busy`, `voicemail`,
+  `failed`) nie ustawiaj go wcale.
 - **Numery w formacie miedzynarodowym** (`+48601234567`). Numer lokalny bez
   prefiksu kraju psuje lookup i rozpoznanie linii.
 - **`startedAt` w ISO 8601 z offsetem strefy** (`DATE_ATOM`, np.

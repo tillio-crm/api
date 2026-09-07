@@ -18,7 +18,7 @@ prawdy: `src/Dto/ContactInput.php`, `src/Dto/WriteOptions.php`. Poniżej KAŻDE 
 | pole | typ | po co (i skąd wziąć wartość) |
 |---|---|---|
 | `firstName` | string | imię - JEDYNE pole wymagane przy tworzeniu |
-| `lastName` | string | nazwisko |
+| `lastName` | string | nazwisko; CRM waliduje: 2-65 znaków - litery, spacje, myślnik, apostrof, kropka, przecinek, cyfra tylko jako pierwszy znak. Od API 2.12.0 ta sama reguła przy tworzeniu i aktualizacji (wcześniej POST przepuszczał to, czego PUT już nie przyjmował) - przy imporcie czyść nazwiska przed wysyłką |
 | `position` | string | stanowisko w firmie |
 | `email` | string | adres e-mail; naturalny klucz duplikatu (patrz `duplicateCheck`) |
 | `phone` | string | telefon główny |
@@ -53,6 +53,7 @@ Odczyt (`Contact`, `src/Dto/Contact.php`) różni się od zapisu:
 | `contractorId` | ?int | GŁÓWNA kartoteka osoby |
 | `contractorIds` | list<int> | WSZYSTKIE kartoteki, do których osoba jest przypięta (osoba może należeć do wielu firm) |
 | `lastActivityAt`, `updatedAt` | ?string | znaczniki czasu z cyklu życia osoby |
+| `url` | ?string | link "otwórz w CRM" do karty osoby (API >= 2.12.0). Kontakt otwiera się jako okno nad kartoteką firmy głównej, więc osoba bez firmy ma tu `null` - przydatne w powiadomieniach dla ludzi |
 
 ## Model danych w skrócie
 

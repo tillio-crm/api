@@ -11,9 +11,12 @@ namespace TillioCrm\Api\Dto;
 final readonly class PhoneCallInput implements Arrayable
 {
     /**
-     * @param 'inbound'|'outbound'|string|null                           $direction kierunek rozmowy
-     * @param 'answered'|'missed'|'busy'|'voicemail'|'failed'|string|null $status    status; 'answered' wymaga duration > 0
-     * @param int|null                                                    $duration  czas trwania w sekundach
+     * @param 'inbound'|'outbound'|string|null                            $direction kierunek rozmowy
+     * @param 'answered'|'missed'|'busy'|'voicemail'|'failed'|string|null $status    status rozmowy
+     * @param int|null                                                    $duration  czas trwania w sekundach.
+     *        Przy statusie 'answered' PODAWAJ ZAWSZE: od API 2.12.0 rozmowa odebrana bez czasu (albo
+     *        z zerem) zapisuje się z ostrzeżeniem zamiast błędu 422, ale raport VoIP liczy odebrane
+     *        po czasie rozmowy - bez duration wypada z zestawień
      * @param string|null                                                 $summary   podsumowanie rozmowy (HTML)
      * @param int|null                                                    $creatorUserId tylko przy tworzeniu
      */
