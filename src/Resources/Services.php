@@ -68,7 +68,8 @@ final readonly class Services extends Resource
     }
 
     /**
-     * `PUT /v2/services/{id}` - aktualizacja pól podanych w input.
+     * `PUT /v2/services/{id}` - aktualizacja pól podanych w input. Daty umowy
+     * API sprawdza względem zapisanych - patrz {@see ServiceInput}.
      *
      * @param ServiceInput|array<string, mixed> $input
      */

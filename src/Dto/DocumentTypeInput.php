@@ -20,7 +20,9 @@ final readonly class DocumentTypeInput implements Arrayable
      * @param int|null          $categoryId     kategoria z `GeneratedDocuments::categories()`
      * @param int|null          $numerationId   schemat numeracji (`GeneratedDocuments::numerations()`)
      * @param int|null          $mailTemplateId szablon maila do wysyłki dokumentu
-     * @param bool|null         $store          czy wygenerowane dokumenty zapisują się w CRM
+     * @param bool|null         $store          czy wygenerowane dokumenty zapisują się w CRM; typ ze
+     *                                          store=false NIE generuje dokumentów przez API
+     *                                          (422 `document.typeNotStored` od API 2.14.0)
      * @param int|null          $publishDays    dni publikacji online; 0 = bez publikacji
      *                                          (przy store=false zawsze 0 - zachowanie CRM)
      * @param list<string>|null $shareEmails    adresy, którym plik źródłowy jest udostępniany

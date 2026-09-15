@@ -63,6 +63,8 @@ final readonly class Calendars extends Resource
     /**
      * `GET /v2/calendars/{id}/events` - wydarzenia kalendarza w zakresie dat
      * (bez zakresu API zwraca najbliższe 30 dni). Lista bez stronicowania.
+     * Od API 2.14.0 daty zakresu są sprawdzane ściśle - pusty string albo
+     * nieistniejący dzień to 400 zamiast cichej zamiany.
      *
      * @param \DateTimeInterface|string|null $dateFrom początek zakresu (ISO 8601)
      * @param \DateTimeInterface|string|null $dateTo   koniec zakresu (ISO 8601)

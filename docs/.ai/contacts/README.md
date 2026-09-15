@@ -69,7 +69,8 @@ Metody zasobu: `create(ContactInput, WriteOptions)`, `update(int $id, ContactInp
 `get(int $id)`, `list(array $filters)`, `iterate(array $filters)` oraz
 `upsert(array $items, WriteOptions)` (paczka).
 
-Inaczej niż leady i szanse, kontakty MAJĄ wykrywanie duplikatów. W `create()`
+Tak jak kontrahenci i leady (od API 2.13.0), a inaczej niż szanse, kontakty MAJĄ
+wykrywanie duplikatów. W `create()`
 z `duplicateCheck` trafienie w istniejącą osobę zwraca HTTP 200 z tym rekordem
 (`WriteResult->created === false`, `->isDuplicate() === true`). W `upsert()`
 status pozycji to `attached` (nie `updated`) - dane zostają DOPIĘTE do istniejącej

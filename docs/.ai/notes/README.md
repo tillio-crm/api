@@ -1,8 +1,8 @@
 # Playbook: Notatki (notes)
 
-Realizacja poleceń użytkownika dotyczących notatek u kontrahentów: zapisanie
-notatki (rozmowa, ustalenie, przypomnienie), dołączenie pliku, odczyt
-załączników i szablony notatek. Pisane dla asystenta AI - zakłada wspólne wzorce
+Realizacja poleceń użytkownika dotyczących notatek u kontrahentów (a także pod
+osobą kontaktową i leadem): zapisanie notatki (rozmowa, ustalenie,
+przypomnienie), dołączenie pliku, odczyt załączników i szablony notatek. Pisane dla asystenta AI - zakłada wspólne wzorce
 z [ai_integration.md](../ai_integration.md) (zwłaszcza helper `findByName()`
 i "Złotą zasadę: nie zgaduj id").
 
@@ -17,6 +17,12 @@ Uwaga strukturalna: `contractorId` jest w ŚCIEŻCE (argument metody), a NIE w
 
 Reszta jest opcjonalna: `body`, `pinned`, `noteDate`, `contactIds`, `customField`,
 `createdAt`, `creatorUserId`. Pełna lista pól: `src/Dto/NoteInput.php`.
+
+Ten sam `NoteInput` przyjmują pozostałe kotwice notatki: pod osobą kontaktową
+`contacts()->createNote($contactId, ...)` (API >= 2.10.0, playbook
+[contacts](../contacts/README.md)) i pod leadem `leads()->createNote($leadId, ...)`
+(API >= 2.13.0, playbook [leads](../leads/README.md)). Notatka leada nie przyjmuje
+`contactIds`, `serviceId` ani `pipelineItemId` (422).
 
 Pole `contactIds` (`list<int>`, API >= 2.8.0) przypina osoby kontaktowe od razu
 przy tworzeniu notatki. Przy notatce kontrahenta wolno wskazać wyłącznie kontakty
@@ -241,5 +247,5 @@ $client->notes()->removeContact($result->id, $jan->id);   // void
   notatce kontrahenta wolno wskazać tylko kontakty tego kontrahenta - obce id to
   błąd, nie ciche pominięcie.
 - **Odczyt vs zapis**: `Note` (odczyt) ma pola `leadId`, `serviceId`,
-  `pipelineId`, których `NoteInput` nie przyjmuje - notatka bywa przypięta do
-  leada, usługi albo szansy, ale przez to API tworzysz ją wyłącznie u kontrahenta.
+  `pipelineId`, których `NoteInput` nie przyjmuje - `leadId` ustawia trasa
+  `leads()->createNote()` (API >= 2.13.0), a nie pole w input.

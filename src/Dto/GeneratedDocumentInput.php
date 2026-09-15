@@ -15,7 +15,10 @@ final readonly class GeneratedDocumentInput implements Arrayable
     /**
      * @param array<string, mixed>|null $data             wartości pól formularza typu dokumentu
      * @param bool|null                 $fillFromPipeline uzupełnij dane z powiązanej szansy
-     * @param bool|null                 $updatePipeline   zapisz wartość dokumentu w szansie
+     * @param bool|null                 $updatePipeline   zapisz wartość dokumentu w szansie; typ z szablonem
+     *                                                    HTML (`requiresTemplate`) to 422
+     *                                                    `document.updatePipelineUnsupported` (od API 2.14.0;
+     *                                                    wcześniej CRM kasował tam pozycje szansy)
      */
     public function __construct(
         public ?int $documentTypeId = null,

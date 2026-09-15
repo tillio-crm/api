@@ -6,7 +6,8 @@ namespace TillioCrm\Api\Dto;
 
 /**
  * Opcje sterujące zapisem - wspólne dla encji z wyszukiwaniem duplikatów
- * (kontrahenci, kontakty, produkty). Jadą w payloadzie OBOK pól encji.
+ * (kontrahenci, kontakty, produkty, od API 2.13.0 także leady). Jadą
+ * w payloadzie OBOK pól encji.
  *
  *     $client->contractors()->create(
  *         new ContractorInput(name: 'Acme', taxId: '0000000000', contractorTypeId: 1),
@@ -27,8 +28,12 @@ final readonly class WriteOptions implements Arrayable
      * @param bool|null         $allowDuplicates          true = nie szukaj duplikatu, zawsze twórz
      * @param bool|null         $requireDuplicateCheck    true = odmów zapisu, gdy ŻADNEGO pola
      *                                                    domyślnego zestawu nie da się sprawdzić
+     *                                                    (leady: KAŻDE pole listy, także domyślnej
+     *                                                    `email`/`phone`, musi mieć wartość)
      * @param string|null       $taxIdLookup              pobranie danych z GUS po NIP (wartość wg spec)
      * @param bool|null         $failOnInvalidTaxId       true = błędny NIP to 422, nie ostrzeżenie
+     *                                                    (odmowa albo limit GUS to ostrzeżenie `taxIdLookup`,
+     *                                                    nie 422 - od API 2.14.0)
      * @param bool|null         $createSystemNote         notatka systemowa przy założeniu kontrahenta
      * @param bool|null         $createContractorContacts osoba kontaktowa z email/phone przy założeniu
      */

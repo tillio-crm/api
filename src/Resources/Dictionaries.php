@@ -431,6 +431,10 @@ final readonly class Dictionaries extends Resource
      * `POST /v2/ticket/processes` - nowy proces obsługi (wymagane `name`;
      * etapy można podać od razu).
      *
+     * Z etapami zapis jest wszystko albo nic (od API 2.14.0): błędny etap = 422
+     * z błędami wszystkich etapów; odmowa CRM przy poprawnym etapie = 422
+     * `process.partialCreate` z id już utworzonych rekordów.
+     *
      * @param TicketProcessInput|array<string, mixed> $input
      */
     public function createTicketProcess(TicketProcessInput|array $input): WriteResult
@@ -711,7 +715,8 @@ final readonly class Dictionaries extends Resource
     }
 
     /**
-     * `POST /v2/pipeline/funnels` - nowy lejek (wymagane `name`).
+     * `POST /v2/pipeline/funnels` - nowy lejek (wymagane `name`). Z etapami
+     * zapis jest wszystko albo nic - reguły jak w {@see createTicketProcess()}.
      *
      * @param PipelineFunnelInput|array<string, mixed> $input
      */
@@ -768,7 +773,8 @@ final readonly class Dictionaries extends Resource
     }
 
     /**
-     * `POST /v2/lead/processes` - nowy proces leadowy (wymagane `name`).
+     * `POST /v2/lead/processes` - nowy proces leadowy (wymagane `name`). Ze
+     * statusami zapis jest wszystko albo nic - reguły jak w {@see createTicketProcess()}.
      *
      * @param LeadProcessInput|array<string, mixed> $input
      */

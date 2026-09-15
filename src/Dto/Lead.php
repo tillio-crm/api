@@ -16,7 +16,8 @@ final readonly class Lead
      *                                          apostrof, kropka, przecinek, a cyfra tylko jako pierwszy
      *                                          znak. Od API 2.12.0 tak samo przy tworzeniu i aktualizacji
      * @param array<string, mixed> $customField wartości pól niestandardowych
-     * @param list<string>         $emails      adresy e-mail leada
+     * @param list<string>         $emails      adresy e-mail leada, główny pierwszy; zapis przez
+     *                                          `LeadInput::$emails` (od API 2.13.0)
      * @param array<string, mixed> $raw         pełny rekord z API
      */
     public function __construct(

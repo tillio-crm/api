@@ -237,3 +237,6 @@ echo "Usunieto wpis #42.\n";
 - **`WriteResult->id` z roznych pol.** Dla baz zrodlem jest `baseId`, dla
   kategorii `categoryId`, dla wpisow `entryId` - ale w kodzie zawsze czytasz je
   jako `->id`.
+- **`search` dziala od API 2.14.0.** Na starszej instancji filtr zawsze zwracal
+  pusta liste - "brak wynikow" nie znaczy tam "brak wpisow". `page`/`limit` poza
+  zakresem to 400.

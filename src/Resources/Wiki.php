@@ -92,7 +92,8 @@ final readonly class Wiki extends Resource
      * `GET /v2/wiki/entries` - strona listy wpisów.
      *
      * Filtry (komplet wg kontraktu): `baseId`, `categoryId`, `published`,
-     * `archived`, `search` (pełnotekstowe), `page`/`limit`. Trasa nie ma `sort`.
+     * `archived`, `search` (pełnotekstowe - działa od API 2.14.0, wcześniej zawsze
+     * pusta lista), `page`/`limit` (poza zakresem = 400). Trasa nie ma `sort`.
      *
      * @param array<string, mixed> $filters
      *

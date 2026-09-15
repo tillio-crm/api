@@ -310,5 +310,11 @@ foreach ($client->dictionaries()->currencies() as $code) {
   - CRM sam doda `#`.
 - **Slowniki nie maja paginacji.** Zwracaja pelne listy - nie szukaj tu
   `iterate()` ani filtrow jak w zasobach CRM.
+- **Proces z etapami zapisuje sie w calosci albo wcale** (API >= 2.14.0).
+  `createTicketProcess()`/`createPipelineFunnel()`/`createLeadProcess()` z blednym
+  etapem daja 422 z bledami WSZYSTKICH etapow i nic nie zapisuja. Gdy CRM odmowi
+  zapisu poprawnego etapu, 422 `process.partialCreate` podaje id procesu i etapow,
+  ktore juz powstaly - nie zakladaj procesu drugi raz, dopisz brakujace etapy.
+  Na starszej instancji proces i poprawne etapy zostawaly mimo bledu.
 - **`calendarTypes()` wymaga API >= 2.2.0.** Na starszej instancji trasa nie
   istnieje - sprawdz `health()['version']` albo obsluz `ServiceUnavailableException`.

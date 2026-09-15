@@ -27,9 +27,12 @@ final readonly class Tasks extends Resource
      *
      * Filtry (komplet wg kontraktu): `contractorId`, `contactId`, `projectId`,
      * `assignedUserId`, `done`, `archived`, `title`, `id`, `description`,
-     * `taskTypeId`, `priority`, `leadId`, `ownerUserId`, `creatorUserId`,
-     * `updatedAfter`/`updatedBefore`, `createdAfter`/`createdBefore`,
+     * `taskTypeId`, `priority`, `leadId`, `pipelineItemId`, `ownerUserId`,
+     * `creatorUserId`, `updatedAfter`/`updatedBefore`, `createdAfter`/`createdBefore`,
      * `customField[klucz]`, `sort`/`sortDir`, `page`/`limit`.
+     *
+     * `pipelineItemId` wymaga API >= 2.13.0 - starsza instancja odrzuci nieznany
+     * parametr błędem 400.
      *
      * @param array<string, mixed> $filters
      *
@@ -73,6 +76,11 @@ final readonly class Tasks extends Resource
 
     /**
      * `PUT /v2/tasks/{id}` - aktualizacja pól podanych w input.
+     *
+     * `priority` CRM zapisuje osobną operacją: od API 2.14.0 żądanie z priorytetem
+     * i innymi polami zapisuje wszystkie, a gdy drugi zapis nie przejdzie - 422
+     * `task.partialUpdate` z listą pól zapisanych i odrzuconych. Do 2.13.0 takie
+     * żądanie zapisywało SAM priorytet i odpowiadało 200.
      *
      * @param TaskInput|array<string, mixed> $input
      */

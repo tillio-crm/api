@@ -6,8 +6,10 @@ namespace TillioCrm\Api\Dto;
 
 /**
  * Notatka do zapisu - named arguments, null = nie wysyłaj pola.
- * Przy tworzeniu (`POST /v2/contractors/{contractorId}/notes` albo
- * `POST /v2/contacts/{contactId}/notes`) API wymaga `noteTypeId` i `title`.
+ * Przy tworzeniu (`POST /v2/contractors/{contractorId}/notes`,
+ * `POST /v2/contacts/{contactId}/notes` albo `POST /v2/leads/{leadId}/notes`)
+ * API wymaga `noteTypeId` i `title`. Notatka pod leadem nie przyjmuje
+ * `contactIds`, `serviceId` ani `pipelineItemId` (422).
  */
 final readonly class NoteInput implements Arrayable
 {

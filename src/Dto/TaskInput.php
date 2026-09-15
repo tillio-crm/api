@@ -13,6 +13,12 @@ final readonly class TaskInput implements Arrayable
     /**
      * @param list<int>|null            $assignedUserIds wykonawcy - tylko przy tworzeniu
      * @param int|null                  $contactId       osoba kontaktowa powiązana z zadaniem (od API 2.8.0)
+     * @param int|null                  $pipelineItemId  szansa sprzedaży (`pipelineItems()`) - musi należeć do
+     *                                                   kontrahenta zadania. Bez `contractorId` przy tworzeniu
+     *                                                   zadanie dostaje kontrahenta szansy, szansa innego
+     *                                                   kontrahenta to 422 (od API 2.13.0; wcześniej CRM po
+     *                                                   cichu nadpisywał kontrahenta albo odpinał szansę).
+     *                                                   Odpięcie w `update()`: `['pipelineItemId' => null]`
      * @param int|null                  $taskStatusId    tylko przy tworzeniu
      * @param array<string, mixed>|null $customField     tylko przy tworzeniu
      * @param string|null               $createdAt       data utworzenia przy imporcie historycznym

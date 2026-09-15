@@ -8,6 +8,13 @@ namespace TillioCrm\Api\Dto;
  * Usługa do zapisu - named arguments, null = nie wysyłaj pola.
  * Przy tworzeniu API wymaga `catalogId` i `contractorId`.
  * Kwoty (`payValue`, `costValue`) jako stringi dziesiętne.
+ *
+ * Daty umowy (`agreementDate`, `agreementFrom`, `agreementTo`, `agreementEnd`,
+ * `agreementTermination`) API przy częściowym `update()` porównuje z zapisanymi
+ * w CRM: `agreementTo` wcześniejsze niż zapisane `agreementFrom` (i odwrotnie)
+ * to 422 (od API 2.14.0). Datę czyści jawny null - wyłącznie przez tablicę
+ * (`['agreementTo' => null]`). Zmiana SAMYCH dat umowy nie odświeża `updatedAt`
+ * usługi, więc filtr `updatedAfter` jej nie wychwyci.
  */
 final readonly class ServiceInput implements Arrayable
 {

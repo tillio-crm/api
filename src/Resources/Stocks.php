@@ -50,6 +50,10 @@ final readonly class Stocks extends Resource
      * Odpowiedź niesie PEŁNY stan po zapisie (bez koperty `info` - stany nie
      * mają własnego id), dlatego zwracamy {@see Stock}, nie WriteResult.
      *
+     * Gdy CRM nie wykona zapisu: 422 `stock.saveFailed` (od API 2.14.0 - wcześniej
+     * 200 z POPRZEDNIĄ ilością). `adjustBy` to odczyt sumy i zapis pełnej ilości,
+     * więc korekty tej samej pary produkt/magazyn serializuj po swojej stronie.
+     *
      *     $stock = $client->stocks()->update(3, 120, new StockInput(adjustBy: '-2'));
      *     $stock->quantity;
      *

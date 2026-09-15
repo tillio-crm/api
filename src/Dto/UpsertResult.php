@@ -15,8 +15,8 @@ use TillioCrm\Api\ApiResponse;
  * wymusza zajrzenie do środka (`hasFailures()`, `failed()`).
  *
  * ZBIÓR STATUSÓW ZALEŻY OD ENCJI: kontrahenci raportują `created|updated|failed`,
- * kontakty `created|attached|failed` (trafienie w duplikat = PODPIĘCIE danych do
- * istniejącej osoby). Dlatego liczniki są generyczne (`countOf()`), a nazwane
+ * kontakty i leady `created|attached|failed` (trafienie w duplikat = PODPIĘCIE
+ * danych do istniejącego rekordu). Dlatego liczniki są generyczne (`countOf()`), a nazwane
  * skróty to wygoda - wspólny dla wszystkich jest tylko `failed`.
  */
 final readonly class UpsertResult
@@ -78,7 +78,7 @@ final readonly class UpsertResult
         return $this->countOf('updated');
     }
 
-    /** Kontakty: istniejąca osoba, do której DOPIĘTO dane (odpowiednik `updated`). */
+    /** Kontakty i leady: istniejący rekord, do którego DOPIĘTO dane (odpowiednik `updated`). */
     public function attachedCount(): int
     {
         return $this->countOf('attached');

@@ -9,8 +9,10 @@ use TillioCrm\Api\ApiResponse;
 /**
  * Wynik pojedynczego zapisu (POST/PUT) w kontrakcie v2.
  *
- * NAJWAŻNIEJSZE: v2 na POST z włączonym `duplicateCheck` odpowiada **200
- * z istniejącym rekordem** zamiast 201 - i NIE zmienia jego danych. Bez tego
+ * NAJWAŻNIEJSZE: v2 na POST z wyszukiwaniem duplikatu (`duplicateCheck`; leady
+ * od API 2.13.0 szukają zawsze, póki nie podasz `allowDuplicates`) odpowiada
+ * **200 z istniejącym rekordem** zamiast 201. Kontakty i leady PODPINAJĄ przy
+ * tym do niego dane z żądania - `data` to rekord po podpięciu. Bez tego
  * rozróżnienia integracja uznałaby "znaleziono duplikat" za "utworzono"
  * i raportowała fałszywe kreacje przy każdym przebiegu. Dlatego `created`
  * bierzemy z `info.created`, a duplikat z `info.duplicate` - oba wyciągnięte
@@ -65,7 +67,7 @@ final readonly class WriteResult
             // statusem, więc fałszywego pozytywu tu nie będzie.
             created: Cast::bool($info['created'] ?? null) ?? ($response->status === 201),
             id: Cast::int($ids[$idKey] ?? ($data['id'] ?? null)),
-            duplicate: $duplicateRow === null ? null : DuplicateMatch::fromArray($duplicateRow),
+            duplicate: $duplicateRow === null ? null : DuplicateMatch::fromArray($duplicateRow, $idKey),
             data: $data,
             ids: $ids,
             warnings: Cast::map($info['warnings'] ?? null),

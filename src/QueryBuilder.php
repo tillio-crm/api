@@ -13,7 +13,9 @@ use TillioCrm\Api\Exception\InvalidFilterException;
  * nie może cicho zwrócić całej bazy), więc do query stringa ma trafić dokładnie to,
  * co wołający podał - bez śmieci po `null`-ach z opcjonalnych argumentów. A daty
  * i booleany muszą wyjść w JEDNYM formacie, bo `updatedAfter` z `DateTime::__toString`
- * to gwarantowany 400.
+ * to gwarantowany 400. Od API 2.14.0 daty są sprawdzane ściśle: pusty string
+ * albo nieistniejący dzień też daje 400 `query.invalidDate` zamiast cichej
+ * zamiany na "teraz".
  *
  * STRAŻNIK `customField[...]`: pusty string jest odrzucany wyjątkiem (w kontrakcie
  * v2 znaczy "pole nieustawione" i przypadkowo sklejałby rekordy - patrz

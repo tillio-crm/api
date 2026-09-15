@@ -31,6 +31,6 @@ $client->tickets()->update($result->id ?? 0, new TicketInput(priority: 2, ownerU
 $messages = $client->tickets()->messages($result->id ?? 0);
 $client->tickets()->addMessage($result->id ?? 0, new TicketMessageInput(
     text: 'Przyjęliśmy zgłoszenie, odezwiemy się w ciągu 24 h.',
-    visibility: 'public',          // 'internal' = notatka wewnętrzna zespołu
+    visibility: 'public',          // 'internal' od API 2.14.0 zawsze 422 (zarezerwowane)
 ));
 ```

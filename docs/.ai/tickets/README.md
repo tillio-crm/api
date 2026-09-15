@@ -2,17 +2,18 @@
 
 Realizacja polecen uzytkownika dotyczacych zgloszen (ticketow): zakladanie,
 przypisywanie opiekuna, powiazania z kontrahentem i usluga oraz prowadzenie
-watku wiadomosci (odpowiedzi publiczne i notatki wewnetrzne). Pisane dla
-asystenta AI - zaklada wspolne wzorce z
-[ai_integration.md](../ai_integration.md) (zwlaszcza `resolveUserId()`,
-`findByName()`, `WriteResult` oraz "Zlota zasada: nie zgaduj id").
+watku wiadomosci (odpowiedzi dla klienta). Pisane dla asystenta AI - zaklada
+wspolne wzorce z [ai_integration.md](../ai_integration.md) (zwlaszcza
+`resolveUserId()`, `findByName()`, `WriteResult` oraz "Zlota zasada: nie zgaduj id").
 
 ## Model danych w skrocie
 
 Zgloszenie tworzy sie przez `TicketInput`. Przy tworzeniu API WYMAGA tylko
 `title` (string). Reszta jest opcjonalna. Wiadomosc w watku tworzy sie przez
 `TicketMessageInput` i WYMAGA `text`; jej `visibility` to `public` (widoczna
-dla klienta) albo `internal` (notatka wewnetrzna zespolu).
+dla klienta, domyslnie). Wartosc `internal` (komentarz wewnetrzny) API
+rezerwuje pod przyszle wydanie - od API 2.14.0 zawsze konczy sie 422
+(patrz Pulapki).
 
 Klluczowa konsekwencja: status, etap i zrodlo zgloszenia (`ticketStatusId`,
 `ticketStageId`, `ticketSourceId`) API przyjmuje TYLKO przy tworzeniu. Po
@@ -53,7 +54,7 @@ Pelna lista pol input-DTO: `src/Dto/TicketInput.php` i
 | pole | typ | po co |
 |---|---|---|
 | `text` | string | tresc wiadomosci. WYMAGANE. |
-| `visibility` | 'public' \| 'internal' | `public` = widoczna dla klienta, `internal` = notatka wewnetrzna zespolu (wymaga nowszej wersji CRM, patrz Pulapki). |
+| `visibility` | 'public' \| 'internal' | `public` = widoczna dla klienta (domyslnie). `internal` od API 2.14.0 zawsze 422 - nie uzywaj (patrz Pulapki). |
 | `date` | string | data wiadomosci przy imporcie historycznym, ISO 8601. |
 | `creatorUserId` | int | autor wiadomosci (domyslnie uzytkownik klucza API). Id przez `resolveUserId()`. |
 | `subject` | string | temat wiadomosci (np. dla korespondencji e-mail). |
@@ -87,21 +88,21 @@ Pelna lista pol input-DTO: `src/Dto/TicketInput.php` i
 | "z e-maila" / "zrodlo telefon" | `ticketSourceId` | `findByName($client->dictionaries()->ticketSources(), 'Telefon')` |
 | "dotyczy uslugi X" | `serviceId` | `services()->list([...])` (patrz playbook uslug) |
 | "odpisz klientowi: ..." | wiadomosc `public` | `addMessage($ticketId, new TicketMessageInput(text: ..., visibility: 'public'))` |
-| "dopisz wewnetrzna notatke: ..." | wiadomosc `internal` | `addMessage($ticketId, new TicketMessageInput(text: ..., visibility: 'internal'))` |
+| "dopisz wewnetrzna notatke: ..." | NIE wiadomosc w watku | powiedz uzytkownikowi, ze API nie zapisuje jeszcze komentarzy wewnetrznych; zaproponuj notatke u kontrahenta (`notes()->create()`, playbook notes) |
 
-## Scenariusz flagowy: zgloszenie od kontrahenta z notatka wewnetrzna
+## Scenariusz flagowy: zgloszenie od kontrahenta z odpowiedzia dla klienta
 
 Polecenie uzytkownika: *"Zaloz zgloszenie 'Nie dziala logowanie' dla
-kontrahenta Acme, opiekun Jan Kowalski, i dopisz wewnetrzna notatke, ze klient
-zglosil to telefonicznie."*
+kontrahenta Acme, opiekun Jan Kowalski, i odpisz klientowi, ze przyjelismy
+zgloszenie."*
 
 Twoj tok postepowania:
 
-1. Wyluskaj tytul, kontrahenta, opiekuna oraz tresc notatki.
+1. Wyluskaj tytul, kontrahenta, opiekuna oraz tresc odpowiedzi.
 2. Rozwiaz kontrahenta na `contractorId` i opiekuna na `ownerUserId`; jesli
    ktorykolwiek jest zerowy albo niejednoznaczny - PRZERWIJ i dopytaj.
 3. Utworz zgloszenie (`title` wymagane).
-4. Dodaj wiadomosc `internal` do watku nowego zgloszenia.
+4. Dodaj wiadomosc `public` do watku nowego zgloszenia - klient ja zobaczy.
 5. Zwroc potwierdzenie z id zgloszenia i id wiadomosci.
 
 ```php
@@ -110,7 +111,7 @@ use TillioCrm\Api\Dto\TicketMessageInput;
 
 // Krok 1: dane z polecenia (Ty je wyluskujesz z tekstu uzytkownika).
 $title = 'Nie dziala logowanie';
-$note  = 'Klient zglosil to telefonicznie.';
+$reply = 'Przyjelismy zgloszenie, odezwiemy sie w ciagu 24 h.';
 
 // Krok 2: rozwiaz kontrahenta i opiekuna na id - nie zgaduj.
 $contractor = $client->contractors()->list(['name' => 'Acme', 'limit' => 1])->first();
@@ -129,21 +130,19 @@ $ticket = $client->tickets()->create(new TicketInput(
     ownerUserId: $ownerUserId,
 ));
 
-// Krok 4: notatka wewnetrzna w watku. visibility 'internal' wymaga nowszej
-// wersji CRM - starsza instancja odpowie 422 z podpowiedzia, zeby uzyc 'public'
-// (patrz Warianty: bezpieczny fallback).
+// Krok 4: odpowiedz w watku. 'public' = widoczna dla klienta.
 $message = $client->tickets()->addMessage($ticket->id, new TicketMessageInput(
-    text: $note,
-    visibility: 'internal',
+    text: $reply,
+    visibility: 'public',
 ));
 
 // Krok 5: potwierdzenie dla uzytkownika.
-echo "Utworzono zgloszenie #{$ticket->id} dla {$contractor->name}, notatka wewnetrzna #{$message->id}.\n";
+echo "Utworzono zgloszenie #{$ticket->id} dla {$contractor->name}, odpowiedz #{$message->id}.\n";
 ```
 
 Co zwrocic uzytkownikowi: numer zgloszenia (`$ticket->id`), kontrahenta i opiekuna
-oraz to, ze notatka jest wewnetrzna. `WriteResult` niesie tez `->warnings` (ciche
-korekty normalizacji) - jesli niepuste, pokaz je uzytkownikowi.
+oraz to, ze odpowiedz jest widoczna dla klienta. `WriteResult` niesie tez
+`->warnings` (ciche korekty normalizacji) - jesli niepuste, pokaz je uzytkownikowi.
 
 ## Warianty
 
@@ -153,39 +152,34 @@ korekty normalizacji) - jesli niepuste, pokaz je uzytkownikowi.
 // Lista wiadomosci zgloszenia (bez stronicowania).
 $messages = $client->tickets()->messages($ticketId);   // list<TicketMessage>
 foreach ($messages as $m) {
-    // $m->visibility to 'public' albo 'internal' - odfiltruj, co pokazujesz.
+    // $m->visibility to 'public' albo 'internal' (komentarze zalozone w CRM) -
+    // odfiltruj, co pokazujesz.
     echo "[{$m->visibility}] {$m->text}\n";
 }
 ```
 
-### Odpowiedz publiczna dla klienta
+### Notatka wewnetrzna zespolu
+
+API nie zapisuje jeszcze komentarzy wewnetrznych zgloszen: `visibility: 'internal'`
+od API 2.14.0 zawsze konczy sie 422 `ticket.internalMessagesUnavailable`. NIE
+przelaczaj na `public` - tresc dla zespolu trafilaby do klienta. Powiedz
+uzytkownikowi, ze tego nie da sie zapisac w watku, i zaproponuj notatke
+u kontrahenta zgloszenia:
 
 ```php
-$client->tickets()->addMessage($ticketId, new TicketMessageInput(
-    text: 'Dziekujemy za zgloszenie, juz to sprawdzamy.',
-    visibility: 'public',
-));
-```
+use TillioCrm\Api\Dto\NoteInput;
 
-### Bezpieczny fallback internal -> public
-
-Jesli instancja nie obsluguje komentarzy wewnetrznych, `internal` zwroci 422.
-Gdy notatka i tak ma trafic do watku, mozna sprobowac `public` po odmowie -
-ale tylko jesli jestes pewien, ze tresc moze zobaczyc klient:
-
-```php
-use TillioCrm\Api\Exception\ValidationException;
-
-try {
-    $client->tickets()->addMessage($ticketId, new TicketMessageInput(
-        text: $note,
-        visibility: 'internal',
-    ));
-} catch (ValidationException $e) {
-    // Instancja bez komentarzy wewnetrznych. NIE przelaczaj cicho na public,
-    // jesli tresc jest wrazliwa - dopytaj uzytkownika, zanim upubliczisz.
-    throw new RuntimeException('Ta instancja nie obsluguje notatek wewnetrznych - potwierdz, czy tresc moze byc publiczna.');
+$noteTypeId = findByName($client->dictionaries()->noteTypes(), 'Notatka');
+if ($noteTypeId === null) {
+    throw new RuntimeException('Nie znaleziono typu notatki - dopytaj, ktory uzyc.');
 }
+
+// Notatka u kontrahenta nie jest widoczna w watku klienta.
+$client->notes()->create($contractor->id, new NoteInput(
+    noteTypeId: $noteTypeId,
+    title: "Zgloszenie #{$ticketId}",
+    body: '<p>Klient zglosil to telefonicznie.</p>',
+));
 ```
 
 ### Etap zgloszenia z procesu obslugi
@@ -218,9 +212,11 @@ $client->tickets()->create(new TicketInput(
 - **Status/etap/zrodlo tylko przy tworzeniu.** `ticketStatusId`, `ticketStageId`,
   `ticketSourceId`, `createClientPanel`, `creatorUserId` PUT odrzuca. Po
   utworzeniu status i etap zmienia proces obslugi zgloszen, nie `update()`.
-- **`internal` wymaga nowszej wersji CRM.** Starsza instancja odrzuci wiadomosc
-  wewnetrzna z 422 i podpowiedzia, zeby uzyc `public`. Nie przelaczaj cicho na
-  `public`, jesli tresc jest wrazliwa - dopytaj (patrz Warianty).
+- **`internal` nie dziala.** Od API 2.14.0 wiadomosc `internal` zawsze konczy
+  sie 422 `ticket.internalMessagesUnavailable`. Na STARSZEJ instancji
+  z komentarzami zgloszen byla zapisywana jako zwykla - WIDOCZNA dla klienta -
+  wiec tam nie wysylaj `internal` z trescia tylko dla zespolu. Nigdy nie
+  przelaczaj cicho na `public` (patrz Warianty).
 - **`ticketStageId` to etap w procesie, nie globalny slownik.** Bierz go ze
   `stages` procesu z `dictionaries()->ticketProcesses()`, nie zgaduj liczby.
 - **Nie zgaduj `ownerUserId`.** Kilku pracownikow moze miec to samo nazwisko -

@@ -16,7 +16,9 @@ final readonly class CustomFieldDefinition
     /**
      * @param array<string, mixed>       $config     konfiguracja typu (np. opcje select)
      * @param list<array<string, mixed>> $options    opcje pól wyboru
-     * @param list<int>                  $assignedTo id użytkowników z dostępem do pola
+     * @param list<int>                  $assignedTo id podtypów rekordów, w których pole działa (typy
+     *                                               notatek, procesy zgłoszeń, lejki...) - tylko encje
+     *                                               z przypisaniami pól
      * @param array<string, mixed>       $raw        pełny rekord z API
      */
     public function __construct(

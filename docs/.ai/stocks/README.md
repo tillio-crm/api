@@ -148,6 +148,13 @@ foreach ($client->stocks()->iterate() as $stock) {
 - **Dokładnie JEDNO z `quantity`/`adjustBy`.** Oba naraz albo żadne to błąd
   walidacji (422). Reguła: "o ile" (przyjęcie/wydanie) -> `adjustBy`; "na ile"
   (stan docelowy) -> `quantity`.
+- **`adjustBy` nie jest atomowe w CRM.** Korekta to odczyt sumy i zapis pełnej
+  ilości - dwie równoległe korekty tej samej pary produkt/magazyn mogą się
+  nadpisać (-2 i -3 od stanu 10 dają 7 zamiast 5). Korekty jednej pary wysyłaj
+  po kolei, nigdy równolegle.
+- **Nieudany zapis to 422 `stock.saveFailed`** (API >= 2.14.0). Wcześniej API
+  odpowiadało 200 z POPRZEDNIĄ ilością - na starszej instancji porównaj
+  `$stock->quantity` z oczekiwanym stanem.
 - **Ilości to STRINGI dziesiętne, nie floaty.** `quantity` i `adjustBy` podawaj
   jako `"100.000"`, `"-2"`, `"0.5"`. Rzutowanie na `float` gubi precyzję przy
   ułamkowych jednostkach; jeśli musisz liczyć różnice, użyj `bcmath` i wynik

@@ -13,6 +13,8 @@ final readonly class Task
     /**
      * @param list<int>            $assignedUserIds wykonawcy zadania
      * @param int|null             $contactId       osoba kontaktowa powiązana z zadaniem (od API 2.8.0)
+     * @param int|null             $pipelineItemId  szansa sprzedaży powiązana z zadaniem (od API 2.13.0;
+     *                                              starsza instancja pola nie zwraca - wychodzi null)
      * @param array<string, mixed> $customField     wartości pól niestandardowych
      * @param array<string, mixed> $raw             pełny rekord z API
      */
@@ -27,6 +29,7 @@ final readonly class Task
         public ?int $contractorId,
         public ?int $contactId,
         public ?int $leadId,
+        public ?int $pipelineItemId,
         public ?int $projectId,
         public ?int $ownerUserId,
         public ?int $creatorUserId,
@@ -58,6 +61,7 @@ final readonly class Task
             contractorId: Cast::int($row['contractorId'] ?? null),
             contactId: Cast::int($row['contactId'] ?? null),
             leadId: Cast::int($row['leadId'] ?? null),
+            pipelineItemId: Cast::int($row['pipelineItemId'] ?? null),
             projectId: Cast::int($row['projectId'] ?? null),
             ownerUserId: Cast::int($row['ownerUserId'] ?? null),
             creatorUserId: Cast::int($row['creatorUserId'] ?? null),

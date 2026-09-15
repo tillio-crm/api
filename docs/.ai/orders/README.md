@@ -24,7 +24,7 @@ Zapis idzie przez `OrderInput` (`src/Dto/OrderInput.php`), pozycje przez
 | `products` | `list<OrderProductInput>` | Pozycje zamowienia. WYMAGANE i NIEPUSTE przy tworzeniu. Budujesz z pozycji katalogowych (patrz OrderProductInput nizej). |
 | `orderStatusId` | `int` | Status zamowienia. Z `dictionaries()->orderStatuses()`, dopasuj nazwe przez `findByName()`. Pominiete = domyslny status instancji. |
 | `note` | `string` | Notatka/uwagi do zamowienia. Tekst wprost od uzytkownika. |
-| `currency` | `string` | Kod waluty (np. `PLN`, `EUR`). Lista dostepnych: `dictionaries()->currencies()`. Pominiete = domyslna waluta instancji. |
+| `currency` | `string` | Kod waluty (np. `PLN`, `EUR`). Lista dostepnych: `dictionaries()->currencies()`. Pominiete = domyslna waluta instancji. TYLKO przy tworzeniu. |
 | `place` | `string` | Miejsce wystawienia. Tekst wprost. |
 | `orderDate` | `string` | Data zamowienia, ISO 8601. Policz i sformatuj `DATE_ATOM`. |
 | `validUntil` | `string` | Waznosc oferty/zamowienia, ISO 8601. |
@@ -224,6 +224,10 @@ $client->orders()->create($contractorId, new OrderInput(
   SKU = 422; produkt musi wczesniej istniec w katalogu.
 - **`update()` nie edytuje pozycji.** Zmienia metadane (status, daty, notatke,
   numer). Nie licz na wsteczna korekte pozycji przez update.
+- **`currency` tylko przy tworzeniu.** Pozycje maja ceny w walucie z utworzenia -
+  `update()` z `currency` to 422 `body.fieldNotUpdatable` i NIC z tego zadania
+  sie nie zapisuje (API >= 2.14.0; wczesniej 200, a waluta zostawala stara).
+  Nie dokladaj `currency` do aktualizacji statusu czy dat.
 - **Kwoty to STRINGI dziesietne**, nie floaty. `'149.00'`, nie `149.0`. Dotyczy
   `quantity`, `price`, `taxRate`, `discount`, a przy odczycie `totalAmount`.
 - **`contractorId` nie jest polem `OrderInput`** - to pierwszy argument

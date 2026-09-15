@@ -127,13 +127,16 @@ abstract readonly class Resource
      * takie żądanie w ogóle nie wychodzi z SDK.
      *
      * Pola `custom:<klucz>` sprawdzane są w `customField`. `allowDuplicates`
-     * wyłącza całe wyszukiwanie duplikatu, więc i ten strażnik.
+     * wyłącza całe wyszukiwanie duplikatu, więc i ten strażnik. Pusta lista to
+     * brak wartości (lead: `emails: []` przy warunku `email`).
      *
-     * @param array<string, mixed> $payload payload scalony z opcjami zapisu
+     * @param array<string, mixed>  $payload   payload scalony z opcjami zapisu
+     * @param array<string, string> $valueKeys pole z duplicateCheck => klucz payloadu, gdy wartość
+     *                                         leży pod inną nazwą (lead: `email` => `emails`)
      *
      * @throws IncompleteDuplicateCheckException
      */
-    protected static function assertDuplicateCheckUsable(array $payload): void
+    protected static function assertDuplicateCheckUsable(array $payload, array $valueKeys = []): void
     {
         $check = $payload['duplicateCheck'] ?? null;
         if (!is_array($check) || $check === [] || (bool) ($payload['allowDuplicates'] ?? false)) {
@@ -150,10 +153,10 @@ abstract readonly class Resource
                 $customField = $payload['customField'] ?? null;
                 $value = is_array($customField) ? ($customField[substr($field, 7)] ?? null) : null;
             } else {
-                $value = $payload[$field] ?? null;
+                $value = $payload[$valueKeys[$field] ?? $field] ?? null;
             }
 
-            if ($value === null || $value === '') {
+            if ($value === null || $value === '' || $value === []) {
                 $missing[] = $field;
             }
         }

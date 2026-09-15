@@ -7,7 +7,7 @@ namespace TillioCrm\Api\Dto;
 /**
  * Znaleziony duplikat z `info.duplicate` odpowiedzi zapisu.
  *
- * `matchedBy` NIE jest domkniętym enumem: poza `taxId|phone|email|name|domain`
+ * `matchedBy` NIE jest domkniętym enumem: poza `taxId|phone|email|name|domain|companyName`
  * przychodzą klucze produktowe (`externalId`, `sku`, `ean`) i `custom:<klucz>`
  * dla pola niestandardowego - kod porównujący tę wartość musi przewidzieć
  * wariant z prefiksem `custom:`.
@@ -28,26 +28,30 @@ final readonly class DuplicateMatch
 
     /**
      * @param array<string, mixed> $duplicate obiekt `info.duplicate`
+     * @param string|null          $idKey     klucz id znalezionego rekordu (`contractorId`, `leadId`...)
      *
      * @return self|null null, gdy odpowiedź nie niesie matchedBy (brak duplikatu)
      */
-    public static function fromArray(array $duplicate): ?self
+    public static function fromArray(array $duplicate, ?string $idKey = null): ?self
     {
         $matchedBy = Cast::nonEmptyString($duplicate['matchedBy'] ?? null);
         if ($matchedBy === null) {
             return null;
         }
 
-        // Klucz id zależy od encji (contractorId, contactId, productId...) -
+        // Duplikat leada niesie obok `leadId` także `contractorId` skonwertowanego
+        // leada, więc wskazany klucz wygrywa. Bez niego (albo gdy go brak)
         // bierzemy pierwszą wartość liczbową spoza matchedBy.
-        $id = null;
-        foreach ($duplicate as $key => $value) {
-            if ($key === 'matchedBy') {
-                continue;
-            }
-            $id = Cast::int($value);
-            if ($id !== null) {
-                break;
+        $id = $idKey === null ? null : Cast::int($duplicate[$idKey] ?? null);
+        if ($id === null) {
+            foreach ($duplicate as $key => $value) {
+                if ($key === 'matchedBy') {
+                    continue;
+                }
+                $id = Cast::int($value);
+                if ($id !== null) {
+                    break;
+                }
             }
         }
 

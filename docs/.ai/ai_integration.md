@@ -144,7 +144,8 @@ Większość zapisów (`create()`, `update()`, `addAddress()`, ...) zwraca
 
 - `->id` (`?int`) - id zapisanego (albo znalezionego) rekordu,
 - `->created` (`bool`) - `true` = utworzono (HTTP 201), `false` = trafiono
-  w istniejący rekord (HTTP 200, przy `duplicateCheck`),
+  w istniejący rekord (HTTP 200, przy `duplicateCheck`; leady od API 2.13.0
+  szukają istniejącego rekordu domyślnie),
 - `->isDuplicate()` (`bool`) - czy to trafienie w duplikat, nie kreacja,
 - `->matchedBy()` (`?string`) - po którym polu dopasowano duplikat,
 - `->warnings` (`array`) - ciche korekty normalizacji; czytaj je i pokaż
@@ -166,6 +167,10 @@ Wszystkie błędy dziedziczą po `TillioApiException`. Reaguj według typu:
 
 - `ValidationException` (400/422) - `->errors` niesie komplet powodów
   `{field, code, message}`. Popraw dane i powtórz; nie ponawiaj bez zmiany.
+- `ApiException` ze statusem 413 (`body.tooLarge`, `body.tooComplex`) - żądanie
+  za duże: body JSON ponad 2 MB albo ponad 20 000 obiektów i tablic. Podziel dane
+  na mniejsze żądania; powtórka tego samego nic nie da. Paczki upsert do 100
+  pozycji mieszczą się z zapasem.
 - `IncompleteDuplicateCheckException` - SDK zatrzymał zapis LOKALNIE, bo pole
   z `duplicateCheck` nie miało wartości. Uzupełnij albo zdejmij pole.
 - `NotFoundException` (404) - złe id (mapowanie nieaktualne).
@@ -198,7 +203,7 @@ z gotowym kodem, warianty i pułapki):
 | Kontrahenci | [contractors/README.md](contractors/README.md) | "dodaj kontrahenta", "znajdź firmę po NIP", "zaktualizuj adres" |
 | Kontakty | [contacts/README.md](contacts/README.md) | "dodaj osobę kontaktową", "podepnij kontakt do firmy" |
 | Notatki | [notes/README.md](notes/README.md) | "zapisz notatkę u kontrahenta", "dodaj notatkę z załącznikiem" |
-| Leady | [leads/README.md](leads/README.md) | "dodaj leada", "przypisz leada do procesu" |
+| Leady | [leads/README.md](leads/README.md) | "dodaj leada", "zarejestruj zapytanie z formularza bez dubla", "dopisz notatkę do leada" |
 | Szanse sprzedaży | [pipeline-items/README.md](pipeline-items/README.md) | "dodaj szansę w lejku", "przesuń na etap" |
 | Zgłoszenia | [tickets/README.md](tickets/README.md) | "utwórz zgłoszenie", "dopisz wiadomość do ticketa" |
 | Projekty | [projects/README.md](projects/README.md) | "załóż projekt dla klienta" |

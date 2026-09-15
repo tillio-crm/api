@@ -301,7 +301,10 @@ final class TillioClient
      * Retry jest tu WYŁĄCZONE: 500 z raportem jest deterministyczne - generyczna
      * polityka ponowień zmarnowałaby wszystkie próby, zanim odda raport.
      *
-     * @return array<string, mixed> raport `{status, version, durationMs, core, database}`
+     * Sekcja `acl` (od API 2.14.0) jest informacyjna: `missingKeys` wskazuje klucze
+     * uprawnień bramek 403 nieznane tej instancji i nie zmienia `status`.
+     *
+     * @return array<string, mixed> raport `{status, version, durationMs, core, database, acl}`
      */
     public function selfcheck(): array
     {

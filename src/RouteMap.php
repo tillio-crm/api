@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace TillioCrm\Api;
 
 /**
- * KOMPLETNA mapa tras API v2 (230 tras, kontrakt 2.12.4) na metody SDK -
+ * KOMPLETNA mapa tras API v2 (232 trasy, kontrakt 2.14.0) na metody SDK -
  * kręgosłup gwarancji
  * pokrycia 100% tras. Test `RouteCoverageTest` pilnuje, żeby każdy wpis
  * wskazywał istniejącą, publiczną metodę, a po pobraniu specyfikacji instancji
@@ -92,6 +92,7 @@ final class RouteMap
         'POST /v2/notes/{id}/contacts' => self::R . 'Notes::addContact',
         'DELETE /v2/notes/{id}/contacts/{contactId}' => self::R . 'Notes::removeContact',
         'POST /v2/contacts/{contactId}/notes' => self::R . 'Contacts::createNote',
+        'POST /v2/leads/{leadId}/notes' => self::R . 'Leads::createNote',
 
         // --- Zgłoszenia ------------------------------------------------------------
         'GET /v2/tickets' => self::R . 'Tickets::list',
@@ -106,6 +107,7 @@ final class RouteMap
         'POST /v2/leads' => self::R . 'Leads::create',
         'GET /v2/leads/{id}' => self::R . 'Leads::get',
         'PUT /v2/leads/{id}' => self::R . 'Leads::update',
+        'POST /v2/leads/upsert' => self::R . 'Leads::upsert',
 
         // --- Zadania + komentarze + załączniki (upload multipart) ------------------
         'GET /v2/tasks' => self::R . 'Tasks::list',

@@ -387,6 +387,13 @@ final class MasterDataDtoTest extends TestCase
         self::assertNull(Task::fromArray(['id' => 6])->contactId);
     }
 
+    public function testTaskReadsPipelineItemId(): void
+    {
+        // Pole odczytu z API 2.13.0 - na starszej instancji go nie ma i wychodzi null.
+        self::assertSame(2716, Task::fromArray(['id' => 5, 'pipelineItemId' => 2716])->pipelineItemId);
+        self::assertNull(Task::fromArray(['id' => 6])->pipelineItemId);
+    }
+
     public function testCalendarEventReadsContactId(): void
     {
         $event = CalendarEvent::fromArray(['id' => 'uid-1', 'title' => 'Spotkanie', 'contactId' => 3]);

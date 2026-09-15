@@ -6,6 +6,7 @@ namespace TillioCrm\Api\Tests;
 
 use PHPUnit\Framework\TestCase;
 use TillioCrm\Api\Dto\CategoryInput;
+use TillioCrm\Api\Dto\LeadInput;
 use TillioCrm\Api\Dto\NoteContact;
 use TillioCrm\Api\Dto\NoteInput;
 use TillioCrm\Api\Dto\NoteTemplateInput;
@@ -19,6 +20,8 @@ use TillioCrm\Api\Dto\TemplateCategory;
 use TillioCrm\Api\Dto\TicketInput;
 use TillioCrm\Api\Dto\TicketMessageInput;
 use TillioCrm\Api\Dto\UserInput;
+use TillioCrm\Api\Dto\WriteOptions;
+use TillioCrm\Api\Exception\IncompleteDuplicateCheckException;
 use TillioCrm\Api\Exception\TransportException;
 use TillioCrm\Api\Tests\Support\FakeClock;
 use TillioCrm\Api\Tests\Support\MockTransport;
@@ -150,6 +153,96 @@ final class CrmResourcesTest extends TestCase
 
         $service = $client->services()->create(new ServiceInput(catalogId: 5, contractorId: 42, payValue: '99.00'));
         self::assertSame(4, $service->id);
+    }
+
+    public function testLeadCreateSendsWriteOptionsAndReadsAttach(): void
+    {
+        // Od API 2.13.0 POST leada to create-or-attach: trafienie = 200 z istniejącym
+        // leadem. Duplikat skonwertowanego leada niesie też contractorId - id
+        // znalezionego rekordu to nadal lead, nie kontrahent.
+        $this->transport->queueJson(200, '{"data":{"id":1532,"title":"A"},"info":{"created":false,"duplicate":{"matchedBy":"email","contractorId":5577,"leadId":1532},"ids":{"leadId":1532}}}');
+
+        $result = $this->client()->leads()->create(
+            new LeadInput(title: 'Formularz', phone: '+48 601 234 567', emails: ['jan@acme.pl']),
+            new WriteOptions(duplicateCheck: ['email', 'phone']),
+        );
+
+        $request = $this->transport->lastRequest();
+        self::assertSame('v2/leads', $request->path);
+        self::assertSame([
+            'title' => 'Formularz',
+            'phone' => '+48 601 234 567',
+            'emails' => ['jan@acme.pl'],
+            'duplicateCheck' => ['email', 'phone'],
+        ], $request->body);
+        self::assertFalse($result->created);
+        self::assertTrue($result->isDuplicate());
+        self::assertSame('email', $result->matchedBy());
+        self::assertSame(1532, $result->id);
+        self::assertSame(1532, $result->duplicate?->id);
+        self::assertSame(5577, $result->duplicate?->raw['contractorId'] ?? null);
+    }
+
+    public function testLeadGuardReadsEmailFromEmailsList(): void
+    {
+        // Warunek `email` API sprawdza po liście `emails` - lead nie ma pola `email`.
+        // Strażnik patrzy tam samo, a pusta lista to brak wartości.
+        $this->transport->queueJson(201, '{"data":{"id":1},"info":{"created":true,"ids":{"leadId":1}}}');
+        $this->client()->leads()->create(new LeadInput(title: 'A', emails: ['a@acme.pl']), new WriteOptions(duplicateCheck: ['email']));
+        self::assertCount(1, $this->transport->requests);
+
+        try {
+            $this->client()->leads()->create(
+                new LeadInput(title: 'B', phone: '601234567', emails: []),
+                new WriteOptions(duplicateCheck: ['email', 'phone']),
+            );
+            self::fail('Oczekiwano IncompleteDuplicateCheckException.');
+        } catch (IncompleteDuplicateCheckException $e) {
+            self::assertSame(['email'], $e->missingFields);
+            self::assertCount(1, $this->transport->requests);
+        }
+    }
+
+    public function testLeadUpsertBuildsBatchAndCountsAttached(): void
+    {
+        $this->transport->queueJson(200, '{"data":{"results":[{"index":0,"status":"attached","leadId":1537,"matchedBy":"phone"},{"index":1,"status":"created","leadId":1538}]},"info":{"summary":{"total":2,"created":1,"attached":1,"failed":0}}}');
+
+        $result = $this->client()->leads()->upsert([
+            new LeadInput(title: 'A', phone: '+48601800001'),
+            new LeadInput(title: 'B', emails: ['b@acme.pl']),
+        ]);
+
+        $request = $this->transport->lastRequest();
+        self::assertSame('POST', $request->method);
+        self::assertSame('v2/leads/upsert', $request->path);
+        self::assertSame(['items' => [
+            ['title' => 'A', 'phone' => '+48601800001'],
+            ['title' => 'B', 'emails' => ['b@acme.pl']],
+        ]], $request->body);
+        self::assertSame(1, $result->attachedCount());
+        self::assertSame(1, $result->createdCount());
+        self::assertFalse($result->hasFailures());
+    }
+
+    public function testLeadInputSendsEmptyEmailsList(): void
+    {
+        // W PUT `emails: []` usuwa wszystkie adresy - pusta lista to wartość jawna
+        // i musi wyjść w payloadzie; pomijamy wyłącznie null.
+        self::assertSame(['emails' => []], (new LeadInput(emails: []))->toArray());
+        self::assertSame([], (new LeadInput())->toArray());
+    }
+
+    public function testLeadCreateNotePostsUnderLead(): void
+    {
+        $this->transport->queueJson(201, '{"data":{"id":904,"leadId":659,"contractorId":null},"info":{"created":true,"ids":{"noteId":904}}}');
+
+        $result = $this->client()->leads()->createNote(659, new NoteInput(noteTypeId: 1, title: 'Rozmowa kwalifikacyjna'));
+
+        $request = $this->transport->lastRequest();
+        self::assertSame('POST', $request->method);
+        self::assertSame('v2/leads/659/notes', $request->path);
+        self::assertSame(['noteTypeId' => 1, 'title' => 'Rozmowa kwalifikacyjna'], $request->body);
+        self::assertSame(904, $result->id);
     }
 
     public function testServiceCatalogAndGroups(): void

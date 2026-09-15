@@ -148,6 +148,11 @@ final readonly class Mail extends Resource
      *    (max 50 MB/plik). Wysyłka z plikami jest BEZ RETRY (powtórka po
      *    timeoutcie, który doszedł, to drugi mail u odbiorcy).
      *
+     * Od API 2.14.0 wszystkie załączniki razem (pliki z żądania i załączniki
+     * szablonu) ważą najwyżej 50 MB - powyżej 422 `body.attachmentsTooLarge`
+     * przed przyjęciem wiadomości. Pole `payload` podlega limitowi body JSON
+     * (2 MB, powyżej 413).
+     *
      *     $client->mail()->send(
      *         new MailSendInput(accountId: 5, to: ['jan@acme.pl'], subject: 'Oferta', body: '<p>...</p>'),
      *         [FileUpload::fromPath('C:/oferta.pdf')],

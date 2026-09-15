@@ -17,6 +17,9 @@ namespace TillioCrm\Api;
  * a kto naprawdę chce filtrować po braku wartości, mówi to tym enumem:
  *
  *     ['customField' => ['erp_id' => CustomFieldFilter::NotSet]]
+ *
+ * Dla pól liczbowych zero jest wartością: od API 2.14.0 `NotSet` nie łapie
+ * rekordów z 0 (wcześniej łapał).
  */
 enum CustomFieldFilter
 {

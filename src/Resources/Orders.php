@@ -74,7 +74,9 @@ final readonly class Orders extends Resource
     }
 
     /**
-     * `PUT /v2/orders/{id}` - aktualizacja metadanych zamówienia.
+     * `PUT /v2/orders/{id}` - aktualizacja metadanych zamówienia. `currency`
+     * ustala się tylko przy tworzeniu - od API 2.14.0 jej obecność to 422
+     * `body.fieldNotUpdatable` i nic z tego żądania się nie zapisuje.
      *
      * @param OrderInput|array<string, mixed> $input
      */

@@ -191,6 +191,12 @@ foreach ($client->services()->iterate(['contractorId' => $contractor->id]) as $s
   katalogu / CRM. Slowniki `servicePaymentTerms()`, `serviceBillingPeriods()`,
   `serviceStatuses()`, `serviceInvoiceTypes()` sluza do interpretacji odczytu.
 - **Daty w ISO 8601 z offsetem strefy** (`DATE_ATOM`). Inny format to 400.
+- **Daty umowy sprawdzane wzgledem zapisanych** (API >= 2.14.0). Przy czesciowym
+  `update()` `agreementTo` wczesniejsze niz zapisane `agreementFrom` (i odwrotnie)
+  to 422. Zmieniasz obie - wyslij obie. Wyczyszczenie daty: tablica
+  `['agreementTo' => null]` (w `ServiceInput` null znaczy "nie wysylaj").
+- **Zmiana SAMYCH dat umowy nie odswieza `updatedAt` uslugi.** Synchronizacja
+  przyrostowa po `updatedAfter` jej nie zobaczy.
 - **`create()` zwraca `WriteResult`** (`->id` = `serviceId`, plus `->created`,
   `->warnings`, `isDuplicate()`), nie samo id. Szczegoly: sekcja "Co zwracaja
   zapisy" w [ai_integration.md](../ai_integration.md).

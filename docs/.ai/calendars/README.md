@@ -211,7 +211,12 @@ $tilioTypeId = findByName($types, 'Tillio');
 
 - **`title`, `startAt`, `endAt` sa wymagane.** Brak ktoregokolwiek = 422.
 - **Daty w ISO 8601 ze strefa** (`DATE_ATOM`, np. `2026-09-10T10:00:00+02:00`).
-  `endAt` musi byc po `startAt`. Inny format = 400.
+  `endAt` musi byc po `startAt`. Inny format = 400. Od API 2.14.0 `dateFrom`/
+  `dateTo` w `events()` sa sprawdzane scisle - pusty albo nieistniejacy dzien
+  (31 lutego) to 400, nie cicha zamiana.
+- **`allDay` i `sendNotifications` tylko jako bool** (API >= 2.14.0). Napis
+  "false" wlaczal dotad powiadomienia; teraz to 422. `CalendarEventInput` typuje
+  je jako bool - payload budowany tablica musi zrobic to samo.
 - **`id` wydarzenia to STRING**, nie int - to UID uslugi kalendarzowej. Nie
   rzutuj na int, nie porownuj liczbowo z id encji CRM.
 - **`createEvent()` zwraca `CalendarEvent`, nie `WriteResult`.** Nie szukaj tu

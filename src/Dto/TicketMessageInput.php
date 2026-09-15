@@ -6,9 +6,11 @@ namespace TillioCrm\Api\Dto;
 
 /**
  * Wiadomość do zgłoszenia (`POST /v2/tickets/{id}/messages`). Wymagane `text`.
- * `visibility`: `public`/`internal` - UWAGA: `internal` wymaga wersji CRM
- * z komentarzami wewnętrznymi zgłoszeń; starsza instancja odpowie 422
- * z podpowiedzią, żeby użyć `public`.
+ * `visibility`: `public` (domyślnie) albo `internal` - UWAGA: od API 2.14.0
+ * `internal` daje ZAWSZE 422 `ticket.internalMessagesUnavailable` (wartość
+ * zarezerwowana pod przyszłe wydanie). Starsza instancja z komentarzami zgłoszeń
+ * zapisywała taką wiadomość jako zwykłą, WIDOCZNĄ w wątku klienta - nie wysyłaj
+ * tam `internal` z treścią, której klient nie powinien zobaczyć.
  */
 final readonly class TicketMessageInput implements Arrayable
 {

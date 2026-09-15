@@ -7,9 +7,78 @@ Wersjonowanie: semver (przed 1.0.0 zmiany łamiące = minor).
 
 ## [Unreleased]
 
+Dostosowanie do kontraktów API 2.13.0 i 2.14.0: leady bez dubli (create-or-attach
+i batch upsert), adresy e-mail leada w zapisie, notatka pod leadem, szansa
+sprzedaży w odczycie zadania oraz dokumentacja zaostrzonych reguł z 2.14.0.
+
+### Dodane
+
+- `leads()->create()` przyjmuje `WriteOptions` jako drugi argument
+  (`duplicateCheck`, `allowDuplicates`, `requireDuplicateCheck`). Od API 2.13.0
+  API przed zapisem szuka istniejącego leada (domyślnie po e-mailu i telefonie,
+  do wyboru też `taxId`, `domain`, `companyName`, `custom:<klucz>`) i zamiast
+  dubla podpina dane do znalezionego: uzupełnia puste pola, dokłada adresy
+  e-mail, wpisuje telefon w wolny numer, nadpisuje tylko `customField`.
+  Odpowiedź 200 z `created === false`, `matchedBy()` i id istniejącego leada;
+  przy leadzie już skonwertowanym `duplicate->raw['contractorId']` wskazuje
+  kontrahenta. Lokalny strażnik `duplicateCheck` sprawdza warunek `email`
+  w liście `emails`, bo lead nie ma pola `email`.
+- `leads()->upsert()` - `POST /v2/leads/upsert`, paczka do 100 leadów, statusy
+  `created|attached|failed` w `UpsertResult` (API >= 2.13.0).
+- `leads()->createNote()` - `POST /v2/leads/{leadId}/notes`, notatka pod
+  leadem (API >= 2.13.0). Body jak `NoteInput` kontrahenta, bez `contactIds`,
+  `serviceId` i `pipelineItemId`.
+- `LeadInput::$emails` - adresy e-mail leada w zapisie, pierwszy = główny
+  (API >= 2.13.0). W `create()` lista do założenia (przy podpięciu adresy są
+  dokładane), w `update()` kompletna lista docelowa - `[]` usuwa wszystkie.
+- `Task::$pipelineItemId` i filtr `pipelineItemId` w `tasks()->list()` -
+  szansa sprzedaży powiązana z zadaniem (API >= 2.13.0).
+
 ### Zmienione
 
-- Mapa tras zweryfikowana 1:1 z kontraktem API **2.12.4** (dalej 230 tras).
+- Mapa tras zweryfikowana 1:1 z kontraktem API **2.14.0** (232 trasy - w 2.13.0
+  doszły `POST /v2/leads/upsert` i `POST /v2/leads/{leadId}/notes`, 2.14.0 tras
+  nie zmienia).
+- PHPDoc i dokumentacja pod zaostrzony kontrakt API 2.14.0. Sygnatury SDK bez
+  zmian; to zachowania po stronie API, które integracja musi znać:
+  - `TicketMessageInput::$visibility`: `internal` zawsze daje 422
+    `ticket.internalMessagesUnavailable`. Starsza instancja z komentarzami
+    zgłoszeń zapisywała taką wiadomość jako zwykłą, widoczną dla klienta.
+  - `generatedDocuments()->create()`/`regenerate()`: typ ze `store=false` to 422
+    `document.typeNotStored`, a `updatePipeline` przy szablonie HTML to 422
+    `document.updatePipelineUnsupported` (CRM kasował tam pozycje szansy).
+  - `OrderInput::$currency` tylko przy tworzeniu - w `orders()->update()` to 422
+    i nic z żądania się nie zapisuje.
+  - `stocks()->update()`: nieudany zapis CRM to 422 `stock.saveFailed` zamiast
+    200 z poprzednią ilością; `adjustBy` nie jest atomowe, korekty tej samej pary
+    produkt/magazyn trzeba wysyłać po kolei.
+  - `ServiceInput`: daty umowy w częściowym `update()` porównywane z zapisanymi
+    (422 przy końcu przed początkiem); zmiana samych dat nie odświeża `updatedAt`.
+  - `tasks()->update()` z `priority` i innymi polami zapisuje wszystkie (dotąd
+    sam priorytet), a częściowy zapis to 422 `task.partialUpdate`.
+  - `mail()->send()`: załączniki razem z załącznikami szablonu najwyżej 50 MB
+    (422 `body.attachmentsTooLarge`); body JSON do 2 MB i 20 000 struktur (413).
+  - `createTicketProcess()`/`createPipelineFunnel()`/`createLeadProcess()` z etapami
+    zapisują wszystko albo nic (`process.partialCreate` przy odmowie CRM).
+  - `WriteOptions::$failOnInvalidTaxId`: odmowa albo limit GUS to ostrzeżenie
+    `taxIdLookup`, nie 422.
+  - Daty w filtrach sprawdzane ściśle (pusty `updatedAfter` i nieistniejący dzień
+    to 400 `query.invalidDate` zamiast cichego "teraz"), także w `calendars()->events()`;
+    `CustomFieldFilter::NotSet` nie łapie już zera w polach liczbowych;
+    `wiki()->entries()` z `search` wreszcie zwraca wyniki; `selfcheck()` ma
+    informacyjną sekcję `acl`.
+- **Zmiana zachowania po stronie API:** od 2.13.0 `leads()->create()` bez opcji
+  nie zakłada drugiego leada z tym samym e-mailem albo telefonem, tylko zwraca
+  istniejący (HTTP 200, `created === false`). Integracja, która liczy nowe
+  leady, musi patrzeć na `$result->created`, a nie na samo `$result->id`.
+  Dawne zachowanie daje `new WriteOptions(allowDuplicates: true)`.
+- `DuplicateMatch::$id` bierze id z klucza encji operacji (`leadId`,
+  `contractorId`...), a pierwszą wartość liczbową tylko awaryjnie - duplikat
+  skonwertowanego leada niesie obok `leadId` także `contractorId`.
+- PHPDoc `TaskInput::$pipelineItemId`: od API 2.13.0 szansa musi należeć do
+  kontrahenta zadania (inaczej 422), a bez `contractorId` zadanie dostaje
+  kontrahenta szansy. Wcześniej CRM po cichu nadpisywał kontrahenta albo
+  odpinał szansę.
 - Udokumentowane nowe filtry list z API 2.12.2 (SDK przekazuje filtry bez własnej
   białej listy, więc działały od razu - PHPDoc deklaruje "komplet wg kontraktu"
   i musiał nadążyć): `notes()->list()` o `id`, `leadId`, `serviceId`, `pipelineId`,
@@ -19,6 +88,17 @@ Wersjonowanie: semver (przed 1.0.0 zmiany łamiące = minor).
   `ownerUserId`, `place`, `note`; `serviceCatalog()->list()` o `id`, `currency`,
   `groupName`. Wymagają API >= 2.12.2 - starsza instancja odrzuca nieznany
   parametr błędem 400.
+
+### Naprawione
+
+- PHPDoc i przykłady `assignedTo` pól niestandardowych opisywały id
+  użytkowników. To id PODTYPÓW rekordów, w których pole działa (typy notatek,
+  procesy zgłoszeń, pozycje katalogu usług, procesy leadowe, lejki sprzedaży),
+  i dotyczy tylko encji `note`, `ticket`, `service`, `lead`, `pipeline` - przykład
+  `update('contractor', ..., ['assignedTo' => [7, 12]])` był błędny podwójnie.
+  Od API 2.14.0 nieistniejący podtyp to 422, więc kod zbudowany na starym opisie
+  przestaje przechodzić. Dopisane też reguły `allowUnassign` (wyłącznie bool)
+  i kształtu `editableBy`.
 
 ## [0.2.0] - 2026-09-07
 

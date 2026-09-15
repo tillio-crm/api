@@ -62,9 +62,12 @@ final readonly class CustomFields extends Resource
 
     /**
      * `PUT /v2/{entity}/custom-fields/{key}` - zmiana PRZYPISANIA pola do
-     * użytkowników (wymagane `assignedTo`; `allowUnassign` pozwala odpiąć).
-     * Innych właściwości definicji nie da się zmienić - pole z błędną definicją
-     * trzeba założyć od nowa.
+     * podtypów rekordów (encje `note`, `ticket`, `service`, `lead`, `pipeline`;
+     * patrz {@see CustomFieldInput::$assignedTo}). `assignedTo` to KOMPLETNA lista
+     * docelowa - usunięcie podtypu KASUJE wartości pola w jego rekordach, więc
+     * wymaga `allowUnassign: true` (wyłącznie bool: od API 2.14.0 napis "false"
+     * albo 1/0 to 422, wcześniej napis był brany za zgodę). Innych właściwości
+     * definicji nie da się zmienić - pole z błędną definicją trzeba założyć od nowa.
      *
      * @param array{assignedTo: list<int>, allowUnassign?: bool} $input
      */

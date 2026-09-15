@@ -89,8 +89,15 @@ $page = $client->contractors()->list([
 ## Zasada 6: daty w filtrach
 
 Filtry dat (`updatedAfter`, `createdBefore`, ...) przyjmuj jako `DateTimeInterface`
-albo string ISO 8601 z offsetem strefy. SDK sformatuje `DateTimeInterface`
-poprawnie; ręczny string musi być w ISO 8601, inaczej 400.
+albo string. SDK sformatuje `DateTimeInterface` poprawnie. Ręczny string API
+sprawdza ściśle (od API 2.14.0) i przyjmuje wyłącznie:
+`2026-08-20T10:00:00+02:00`, `2026-08-20T08:00:00Z`, `2026-08-20T08:00:00.250Z`,
+`2026-08-20T10:00:00`, `2026-08-20 10:00:00` i `2026-08-20` (północ). Każdy inny
+zapis, PUSTA wartość i nieistniejący dzień (np. 31 lutego) to 400
+`query.invalidDate`. Wcześniej API po cichu brało "teraz", więc synchronizacja
+przyrostowa gubiła rekordy bez żadnego błędu. Przy pierwszym przebiegu pomiń
+filtr, zamiast wysyłać pusty `updatedAfter`. `page` i `limit` to liczby całkowite
+(`page=2abc` = 400).
 
 ```php
 $page = $client->contractors()->list([

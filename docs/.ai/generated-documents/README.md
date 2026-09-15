@@ -26,7 +26,7 @@ Named arguments, `null` = nie wysylaj pola. Wszystkie pola:
 | `data` | `array<string, mixed>` | Wartosci pol formularza typu. Ksztalt zalezy od typu - pobierz go przez `typeForm($typeId, $contractorId, $templateId)` i wypelnij. |
 | `salesPipelineId` | `int` | Powiazana szansa sprzedazy. Z `pipelineItems()->list([...])`. |
 | `fillFromPipeline` | `bool` | Uzupelnij dane z powiazanej szansy (wymaga `salesPipelineId`). |
-| `updatePipeline` | `bool` | Zapisz wartosc dokumentu w powiazanej szansie. |
+| `updatePipeline` | `bool` | Zapisz wartosc dokumentu w powiazanej szansie. Nie dziala dla typu z szablonem HTML (`requiresTemplate`) - 422 `document.updatePipelineUnsupported` (API >= 2.14.0; wczesniej CRM kasowal pozycje szansy). |
 
 Pola odczytu warte uwagi:
 
@@ -225,6 +225,13 @@ numeracje: `numerations()`. Szczegoly w `src/Resources/GeneratedDocuments.php`.
 
 - **`documentTypeId` jest wymagane.** Rozwiaz typ z nazwy przez `types()` +
   dopasowanie po `name`; nie zgaduj id.
+- **Typ musi miec `store = true`.** Typ ze `store=false` nie generuje przez API -
+  422 `document.typeNotStored` (API >= 2.14.0; wczesniej zadanie konczylo sie
+  bez odpowiedzi API). Sprawdz `DocumentType::$store` przed `create()`.
+- **`updatePipeline` tylko dla typow bez szablonu HTML.** Przy `requiresTemplate`
+  (i przy `regenerate()` dokumentu z `templateId`) to 422
+  `document.updatePipelineUnsupported` - CRM kasowal tam produkty szansy.
+  `fillFromPipeline` dziala dla obu wariantow.
 - **Typ z `requiresTemplate = true` wymaga `templateId`.** Wez go z
   `DocumentType::$templates` (`{id, name, description}`). Brak szablonu przy
   takim typie = 422.

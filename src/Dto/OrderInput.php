@@ -15,6 +15,9 @@ final readonly class OrderInput implements Arrayable
 {
     /**
      * @param list<OrderProductInput|array<string, mixed>>|null $products      pozycje zamówienia
+     * @param string|null                                       $currency      waluta (ISO 4217) - TYLKO przy tworzeniu: w `update()`
+     *                                                                         to 422 i nic z tego żądania się nie zapisuje
+     *                                                                         (od API 2.14.0; wcześniej 200 ze starą walutą)
      * @param string|null                                       $createdAt     data utworzenia przy
      *                                                                         imporcie historycznym
      * @param int|null                                          $creatorUserId tylko przy tworzeniu

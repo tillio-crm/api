@@ -1,8 +1,9 @@
 # Playbook: Leady (leads)
 
-Realizacja poleceń użytkownika dotyczących leadów: rejestrowanie zapytań, dane
-firmy i osoby kontaktowej, przypisanie opiekuna, proces leadowy, odczyt i filtry.
-Pisane dla asystenta AI - zakłada wspólne wzorce z
+Realizacja poleceń użytkownika dotyczących leadów: rejestrowanie zapytań (także
+z formularzy, bez dubli), dane firmy i osoby kontaktowej, adresy e-mail,
+przypisanie opiekuna, proces leadowy, notatki pod leadem, import paczek, odczyt
+i filtry. Pisane dla asystenta AI - zakłada wspólne wzorce z
 [ai_integration.md](../ai_integration.md) (zwłaszcza `resolveUserId()`,
 `findByName()`, opis `WriteResult` i "Złotą zasadę: nie zgaduj id").
 
@@ -26,6 +27,7 @@ Lead zapisuje się przez `LeadInput` (named arguments, `null` = nie wysyłaj pol
 | `position` | string | stanowisko osoby kontaktowej |
 | `phone` | string | telefon główny |
 | `phoneAlternative` | string | telefon dodatkowy |
+| `emails` | list<string> | adresy e-mail leada, PIERWSZY = główny (API >= 2.13.0, najwyżej 20). W `create()` lista do założenia - przy trafieniu w istniejącego leada adresy są DOKŁADANE; w `update()` to KOMPLETNA lista docelowa (`[]` usuwa wszystkie) |
 | `street` | string | ulica (wraz z numerem) |
 | `street2` | string | druga linia adresu |
 | `postCode` | string | kod pocztowy |
@@ -36,6 +38,15 @@ Lead zapisuje się przez `LeadInput` (named arguments, `null` = nie wysyłaj pol
 | `customField` | array<string,mixed> | wartości pól niestandardowych, mapa `klucz => wartosc`; klucze z `customFields()` |
 | `createdAt` | string | data utworzenia przy imporcie historycznym (ISO 8601); pomiń dla bieżących leadów |
 | `creatorUserId` | int | autor przy imporcie historycznym; z `resolveUserId()`. Ustawiane TYLKO przy tworzeniu |
+
+Opcje zapisu NIE są polami leada - idą jako drugi argument `create()`/`upsert()`
+w `WriteOptions` (API >= 2.13.0):
+
+| opcja | typ | po co |
+|---|---|---|
+| `duplicateCheck` | list<string> | pola, po których API szuka istniejącego leada, w kolejności priorytetu: `email` (którykolwiek adres z `emails`), `phone` (porównywany z oboma numerami leada), `taxId`, `domain`, `companyName`, `custom:<klucz>` (pole INT/STR/VARCHAR - klucz integracji). Domyślnie `['email', 'phone']` |
+| `allowDuplicates` | bool | `true` = nie szukaj, zawsze nowy lead. Tylko w `create()` - w `upsert()` API odrzuca to błędem 422 |
+| `requireDuplicateCheck` | bool | `true` = tryb importu: KAŻDE pole listy (także domyślnej) musi mieć wartość, inaczej 422 |
 
 Odczyt (`Lead`, `src/Dto/Lead.php`) niesie pola, których `LeadInput` NIE przyjmuje
 - są ustawiane po stronie CRM. Najważniejsze różnice:
@@ -48,7 +59,6 @@ Odczyt (`Lead`, `src/Dto/Lead.php`) niesie pola, których `LeadInput` NIE przyjm
 | `contractorId` | ?int | kartoteka kontrahenta, jeśli lead został z nią powiązany |
 | `contactId` | ?int | osoba kontaktowa (kartoteka), jeśli powiązano |
 | `salesPipelineId` | ?int | id szansy sprzedaży utworzonej z leada (patrz playbook pipeline-items) |
-| `emails` | list<string> | adresy e-mail leada (odczyt; zapis idzie polami firmy/osoby) |
 | `region`, `district` | ?string | region i powiat (uzupełniane przez CRM) |
 | `closedAt`, `lastActivityAt`, `updatedAt` | ?string | znaczniki czasu z cyklu życia leada |
 
@@ -62,10 +72,31 @@ Cała reszta jest opcjonalna. W praktyce lead ma sens dopiero z danymi firmy
 i/lub osoby kontaktowej oraz opiekunem, ale API nie wymusza żadnego z tych pól
 - wymusza tylko `title`.
 
-Metody zasobu: `create(LeadInput)`, `update(int $id, LeadInput)`, `get(int $id)`,
-`list(array $filters)`, `iterate(array $filters)`. NIE ma metody `upsert` - lead
-nie ma wbudowanego wykrywania duplikatów (inaczej niż kontrahenci czy kontakty).
-Dwa razy wywołany `create()` da dwa leady.
+Metody zasobu: `create(LeadInput, WriteOptions)`, `update(int $id, LeadInput)`,
+`get(int $id)`, `list(array $filters)`, `iterate(array $filters)`,
+`upsert(array $items, WriteOptions)` (paczka do 100 leadów) oraz
+`createNote(int $leadId, NoteInput)` (notatka pod leadem).
+
+**Create-or-attach (API >= 2.13.0).** `create()` NIE zakłada dubla: API najpierw
+szuka istniejącego leada (domyślnie po e-mailu i telefonie z żądania). Gdy
+znajdzie, zwraca HTTP 200 z TYM leadem i podpina do niego dane z żądania:
+
+- puste pola uzupełnia, wypełnionych NIE nadpisuje (tytuł istniejącego leada zostaje),
+- adresy z `emails` dokłada (adres główny bez zmian),
+- telefon wpisuje w wolny numer (główny, potem alternatywny; oba zajęte = ostrzeżenie),
+- `customField` NADPISUJE (klucze integracji mają być aktualne),
+- `leadStatusId`, `contractorSourceId`, `createdAt` i `creatorUserId` pomija
+  z ostrzeżeniem w `->warnings` - lead nie powstaje, więc nie ma czego ustawiać.
+
+`WriteResult` mówi, co się stało: `->created` (`true` = nowy lead, `false` =
+podpięto do istniejącego), `->isDuplicate()`, `->matchedBy()` (po czym znaleziono)
+i `->id` (id leada - nowego albo istniejącego). Gdy znaleziony lead jest już
+skonwertowany na kontrahenta, `$result->duplicate?->raw['contractorId']` wskazuje
+tego kontrahenta - to już klient, powiedz o tym użytkownikowi.
+
+Lead bez e-maila i telefonu powstaje normalnie (API tylko ostrzega, że nie miało
+po czym szukać). Na instancji starszej niż 2.13.0 wyszukiwania nie ma: każdy
+`create()` zakłada nowego leada, a `WriteOptions` odbija się błędem walidacji.
 
 ## Mapowanie intencji użytkownika na dane API
 
@@ -74,25 +105,31 @@ Dwa razy wywołany `create()` da dwa leady.
 | "zapytanie od firmy Acme" | `title`, `companyName` | tekst polecenia; `title` to krótki opis, `companyName` to nazwa firmy |
 | "NIP 0000000000" | `taxId` | wprost z polecenia |
 | "kontakt: Jan Kowalski, tel. ..." | `firstName`, `lastName`, `phone` | wprost z polecenia (to dane wolne, nie kartoteka) |
+| "e-mail jan@acme..." | `emails: ['jan@acme...']` | wprost z polecenia; pierwszy adres = główny |
 | "opiekun Anna Nowak" | `ownerUserId` | `resolveUserId($client, 'Anna', 'Nowak')` |
 | "proces 'Sprzedaz nowy klient'" | `leadStatusId` | `findByName($client->dictionaries()->leadProcesses(), 'Sprzedaz nowy klient')` - to id PROCESU |
 | "źródło: strona www" | `contractorSourceId` | słownik źródeł w `dictionaries()`; dopasuj nazwę |
 | "z adresem w Warszawie" | `city`, `street`, `postCode` | wprost z polecenia |
+| "nawet jeśli już jest, załóż nowy" | `new WriteOptions(allowDuplicates: true)` | tylko na wyraźne życzenie - domyślnie dubla nie zakładaj |
+| "dopisz notatkę do leada" | `createNote($leadId, NoteInput)` | typ z `dictionaries()->noteTypes()` |
 
 ## Scenariusz flagowy: lead z zapytania ze strony
 
 Polecenie użytkownika: *"Zarejestruj leada 'Zapytanie ze strony - Acme'. Firma
 Acme sp. z o.o., NIP 0000000000, osoba kontaktowa Jan Kowalski, telefon
-+48 600 100 200. Opiekun: Anna Nowak. Proces leadowy: 'Sprzedaz nowy klient'."*
++48 600 100 200, e-mail jan.kowalski@acme.przyklad.example. Opiekun: Anna Nowak.
+Proces leadowy: 'Sprzedaz nowy klient'."*
 
 Twój tok postępowania:
 
-1. Wyłuskaj z polecenia: tytuł, dane firmy, dane osoby, opiekuna, nazwę procesu.
+1. Wyłuskaj z polecenia: tytuł, dane firmy, dane osoby, e-mail, opiekuna, nazwę procesu.
 2. Rozwiąż opiekuna na `ownerUserId` (odpytując `users()`); przy zerze/wielu
    trafieniach PRZERWIJ i dopytaj, nie zgaduj.
 3. Rozwiąż nazwę procesu na `leadStatusId` przez słownik `leadProcesses()`; gdy
    nazwa nie pasuje - dopytaj, nie wstawiaj przypadkowego id.
-4. Utwórz leada i zwróć potwierdzenie z id.
+4. Wyślij leada. API samo sprawdzi, czy lead z tym e-mailem albo telefonem już
+   jest - nie szukaj go ręcznie przed zapisem.
+5. Zwróć potwierdzenie, rozróżniając "utworzono" od "lead już był".
 
 ```php
 use TillioCrm\Api\Dto\LeadInput;
@@ -104,6 +141,7 @@ $taxId       = '0000000000';
 $firstName   = 'Jan';
 $lastName    = 'Kowalski';
 $phone       = '+48 600 100 200';
+$email       = 'jan.kowalski@acme.przyklad.example';
 
 // Krok 2: opiekun leada - rozwiąż nazwisko na id, nie zgaduj.
 // resolveUserId() z ai_integration.md: rzuca przy zeru/wielu trafieniach.
@@ -118,8 +156,8 @@ if ($leadStatusId === null) {
     throw new RuntimeException("Nie znaleziono procesu leadowego o tej nazwie - dopytaj uzytkownika, ktory proces wybrac.");
 }
 
-// Krok 4: utworzenie leada. Wymagany jest tylko title, resztę dokładamy z polecenia.
-// create() zwraca WriteResult: ->id (id leada), ->created, ->warnings.
+// Krok 4: zapis. Wymagany jest tylko title, resztę dokładamy z polecenia.
+// API >= 2.13.0 szuka istniejącego leada po e-mailu i telefonie (domyślnie).
 $result = $client->leads()->create(new LeadInput(
     title:        $title,
     companyName:  $companyName,
@@ -127,19 +165,111 @@ $result = $client->leads()->create(new LeadInput(
     firstName:    $firstName,
     lastName:     $lastName,
     phone:        $phone,
+    emails:       [$email],
     ownerUserId:  $ownerUserId,
     leadStatusId: $leadStatusId,
 ));
 
-// Potwierdzenie dla użytkownika:
-echo "Utworzono leada #{$result->id}: {$title}.\n";
+// Krok 5: potwierdzenie - created mówi, czy lead jest nowy.
+if ($result->created) {
+    echo "Utworzono leada #{$result->id}: {$title}.\n";
+} else {
+    // Lead z tym e-mailem/telefonem już był - API podpięło do niego dane.
+    echo "Lead juz istnial (#{$result->id}, dopasowany po: {$result->matchedBy()}) - uzupelniono dane.\n";
+    $contractorId = $result->duplicate?->raw['contractorId'] ?? null;
+    if ($contractorId !== null) {
+        echo "Uwaga: ten lead jest juz klientem - kontrahent #{$contractorId}.\n";
+    }
+}
 ```
 
-Co zwrócić użytkownikowi: numer leada (`$result->id`), nazwę firmy i opiekuna.
-`WriteResult` niesie też `->warnings` (ciche korekty normalizacji) - jeśli
-niepuste, pokaż je użytkownikowi.
+Co zwrócić użytkownikowi: numer leada (`$result->id`), nazwę firmy i opiekuna
+oraz to, czy lead jest nowy. Przy trafieniu w istniejącego leada proces
+(`leadStatusId`) NIE został ustawiony - `->warnings` mówi o tym wprost, pokaż to
+użytkownikowi razem z pozostałymi ostrzeżeniami.
 
 ## Warianty
+
+### Formularz albo integracja: własny klucz zamiast e-maila
+
+Lead nie ma `externalId` - klucz integracji (np. id zgłoszenia z formularza)
+trzyma się w polu niestandardowym leada typu INT/STR/VARCHAR.
+
+```php
+use TillioCrm\Api\Dto\LeadInput;
+use TillioCrm\Api\Dto\WriteOptions;
+
+// Najpierw szukamy po kluczu integracji, potem po e-mailu. SDK wymaga, żeby
+// KAŻDE pole z duplicateCheck miało wartość w żądaniu - inaczej rzuci
+// IncompleteDuplicateCheckException, zanim żądanie wyjdzie.
+$result = $client->leads()->create(
+    new LeadInput(
+        title: 'Formularz kontaktowy - Acme',
+        emails: ['jan.kowalski@acme.przyklad.example'],
+        customField: ['zapier_id' => 'ZAP-1042'],
+    ),
+    new WriteOptions(duplicateCheck: ['custom:zapier_id', 'email']),
+);
+```
+
+### Import paczki leadów
+
+```php
+use TillioCrm\Api\Dto\LeadInput;
+
+// Do 100 leadów w jednym żądaniu; większą listę dziel sam (UpsertResult ma
+// withIndexOffset() i merge() do scalania wyników paczek).
+$batch = $client->leads()->upsert([
+    new LeadInput(title: 'Acme - targi', phone: '+48 600 100 200'),
+    new LeadInput(title: 'Beta - targi', emails: ['biuro@beta.przyklad.example']),
+]);
+
+// HTTP jest zawsze 200 - wynik siedzi per pozycja. Sprawdzaj hasFailures().
+echo "Nowe: {$batch->createdCount()}, podpiete do istniejacych: {$batch->attachedCount()}\n";
+foreach ($batch->failed() as $row) {
+    echo "Pozycja {$row['index']} odrzucona: " . json_encode($row['errors']) . "\n";
+}
+```
+
+### Notatka pod leadem (API >= 2.13.0)
+
+```php
+use TillioCrm\Api\Dto\NoteInput;
+
+$noteTypeId = findByName($client->dictionaries()->noteTypes(), 'Rozmowa telefoniczna');
+if ($noteTypeId === null) {
+    throw new RuntimeException('Nie znaleziono typu notatki - dopytaj, ktory uzyc.');
+}
+
+// Wymagane noteTypeId i title, jak przy notatce kontrahenta.
+$result = $client->leads()->createNote($leadId, new NoteInput(
+    noteTypeId: $noteTypeId,
+    title: 'Rozmowa kwalifikacyjna',
+    body: '<p>Prosi o wycene na 10 stanowisk.</p>',
+));
+echo "Zapisano notatke #{$result->id} pod leadem #{$leadId}.\n";
+```
+
+Notatka należy do leada (`contractorId` zostaje `null`, także gdy lead ma już
+kontrahenta) - przy konwersji leada CRM sam przepina jego notatki. `contactIds`,
+`serviceId` i `pipelineItemId` nie są tu obsługiwane (422). Odczyt:
+`notes()->list(['leadId' => $leadId])`.
+
+### Adresy e-mail: dopisanie a wymiana
+
+```php
+use TillioCrm\Api\Dto\LeadInput;
+
+// update() WYMIENIA listę na podaną - żeby dopisać adres, przekaż komplet,
+// inaczej dotychczasowe adresy znikną. Pierwszy element = adres główny.
+$lead = $client->leads()->get(42);
+$client->leads()->update(42, new LeadInput(
+    emails: [...$lead->emails, 'nowy@acme.przyklad.example'],
+));
+
+// Pusta lista usuwa wszystkie adresy.
+$client->leads()->update(42, new LeadInput(emails: []));
+```
 
 ### Odczyt i filtrowanie listy
 
@@ -156,10 +286,14 @@ foreach ($page as $lead) {
 ```
 
 Dostępne filtry (komplet wg kontraktu): `leadStatusId`, `leadStageId`,
-`ownerUserId`, `title`, `taxId`, `updatedAfter`/`updatedBefore`,
-`createdAfter`/`createdBefore`, `customField[klucz]`, `sort`/`sortDir`,
-`page`/`limit`. Do pełnego przebiegu wszystkich stron użyj `iterate()`
-(wymusza `sort=id`, nie gubi rekordów - patrz [queries](../queries/README.md)).
+`ownerUserId`, `title`, `taxId`, `id`, `statusChangeReasonId`, `categoryId`,
+`contractorSourceId`, `priority`, `creatorUserId`, `contractorId`, `contactId`,
+`salesPipelineId`, `companyName`, `regon`, `domain`, `firstName`, `lastName`,
+`position`, `phone`, `phoneAlternative`, `street`, `postCode`, `city`, `region`,
+`country`, `updatedAfter`/`updatedBefore`, `createdAfter`/`createdBefore`,
+`customField[klucz]`, `sort`/`sortDir`, `page`/`limit`. Do pełnego przebiegu
+wszystkich stron użyj `iterate()` (wymusza `sort=id`, nie gubi rekordów - patrz
+[queries](../queries/README.md)).
 
 ### Zmiana opiekuna albo danych istniejącego leada
 
@@ -188,23 +322,35 @@ foreach ($client->dictionaries()->leadProcesses() as $process) {
 - **`title` jest jedynym polem wymaganym.** Brak `title` = 422. Wszystko inne
   opcjonalne, ale lead bez danych firmy/osoby jest bezużyteczny - dołóż to, co
   podał użytkownik.
+- **`create()` nie zawsze tworzy (API >= 2.13.0).** Lead z tym samym e-mailem
+  albo telefonem już istnieje → HTTP 200, `->created === false`, dane podpięte do
+  istniejącego. Nie mów "utworzono", gdy `created` jest `false`, i nie szukaj
+  leada ręcznie przed zapisem - API robi to samo, w jednym żądaniu.
+- **Przy podpięciu proces i źródło NIE wchodzą.** `leadStatusId`,
+  `contractorSourceId`, `createdAt` i `creatorUserId` działają tylko przy
+  tworzeniu - przy trafieniu w istniejącego leada lądują w `->warnings`.
+- **Skonwertowany lead to już klient.** `$result->duplicate?->raw['contractorId']`
+  niepuste = lead został kontrahentem. Nie zakładaj nowego leada na siłę
+  (`allowDuplicates`) - zapytaj użytkownika, co zrobić.
+- **`emails` działa różnie w `create()` i `update()`.** Przy podpięciu adresy są
+  DOKŁADANE, a `update()` WYMIENIA całą listę - pominięte adresy znikają, `[]`
+  czyści wszystkie.
+- **Klucz integracji to pole niestandardowe.** Lead nie ma `externalId`;
+  `duplicateCheck: ['custom:<klucz>']` działa tylko dla pól INT/STR/VARCHAR.
+- **Pole z `duplicateCheck` musi mieć wartość.** SDK zatrzymuje zapis lokalnie
+  (`IncompleteDuplicateCheckException`), gdy jawnie wskazane pole jest puste -
+  dla `email` liczy się lista `emails` (pusta = brak wartości).
 - **`leadStatusId` to PROCES, nie etap.** W input ustawiasz proces leadowy
   (id z `leadProcesses()`). Konkretny ETAP (`leadStageId`) jest polem ODCZYTU -
   wynikiem pracy z leadem w CRM, nie parametrem zapisu. `LeadInput` w ogóle nie
   ma pola `leadStageId`.
-- **`leadStatusId`/`contractorSourceId`/`creatorUserId` tylko przy tworzeniu.**
-  Kontrakt oznacza je jako ustawiane wyłącznie w `create()`; nie licz, że
-  `update()` je zmieni.
-- **Brak upsert - brak wykrywania duplikatów.** Dwa `create()` z tymi samymi
-  danymi dadzą dwa leady. Jeśli chcesz uniknąć duplikatu, najpierw sprawdź
-  `list(['taxId' => ...])` albo `list(['title' => ...])`.
 - **Nie zgaduj `ownerUserId`.** Kilka osób może mieć to samo nazwisko -
   `resolveUserId()` celowo rzuca przy wielu trafieniach. Dopytaj o e-mail.
 - **`priority` bez zdefiniowanej skali.** Kontrakt nie mówi, co znaczy dana
   liczba w tej instancji - nie wpisuj wartości "na oko", pomiń albo dopytaj.
 - **Odczyt vs zapis.** `Lead` (odczyt) ma pola nieobecne w `LeadInput`
   (`leadStageId`, `contractorId`, `contactId`, `salesPipelineId`, `region`,
-  `district`, `emails`, znaczniki czasu) - ustawia je CRM.
-- **`create()` zwraca `WriteResult`** (`->id`, `->created`, `->warnings`), nie
-  samo id. Szczegóły: sekcja "Co zwracają zapisy" w
-  [ai_integration.md](../ai_integration.md).
+  `district`, znaczniki czasu) - ustawia je CRM.
+- **`create()` zwraca `WriteResult`** (`->id`, `->created`, `->warnings`,
+  `isDuplicate()`), nie samo id; `upsert()` zwraca `UpsertResult`. Szczegóły:
+  sekcja "Co zwracają zapisy" w [ai_integration.md](../ai_integration.md).

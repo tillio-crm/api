@@ -26,11 +26,18 @@ final readonly class CustomFieldInput implements Arrayable
      * @param string|null               $entity     encja pola (np. `contractor`)
      * @param list<string>|null         $options    opcje pól wyboru
      * @param array<string, mixed>|null $config     konfiguracja typu
-     * @param list<int>|null            $assignedTo id użytkowników z dostępem
+     * @param list<int>|null            $assignedTo id PODTYPÓW rekordów, w których pole działa - NIE
+     *                                              użytkowników (dostęp ustawia `editableBy`). Wymagane
+     *                                              dla encji z przypisaniami: `note` (typy notatek),
+     *                                              `ticket` (procesy zgłoszeń), `service` (pozycje
+     *                                              katalogu usług), `lead` (procesy leadowe),
+     *                                              `pipeline` (lejki sprzedaży). Nieistniejący podtyp
+     *                                              to 422 i pole nie powstaje (od API 2.14.0)
      * @param array{userIds?: list<int>, departmentIds?: list<int>, groupIds?: list<int>}|null $editableBy
      *                                              ACL pola: kto widzi i edytuje wartości
      *                                              (jednolity kształt ACL API; null = wszyscy) -
-     *                                              podaj ZAWSZE (patrz opis klasy)
+     *                                              podaj ZAWSZE (patrz opis klasy). Inny kształt
+     *                                              (`userId`, płaska lista id) to 422 od API 2.14.0
      */
     public function __construct(
         public ?string $entity = null,

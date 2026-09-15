@@ -25,10 +25,14 @@ if ($matching === []) {
     $key = $result->data['key'];      // np. 'contractor_str_2'
 }
 
-// Zmiana przypisania do użytkowników - jedyna edycja definicji.
-// Pola z błędną definicją NIE da się poprawić: trzeba założyć nowe.
-$client->customFields()->update('contractor', 'contractor_str_2', [
-    'assignedTo' => [7, 12],
+// Zmiana przypisania do PODTYPÓW rekordów (id typów notatek, procesów zgłoszeń,
+// pozycji katalogu usług, procesów leadowych albo lejków) - jedyna edycja
+// definicji, tylko dla encji note/ticket/service/lead/pipeline. assignedTo to
+// KOMPLETNA lista; usunięcie podtypu kasuje wartości pola, więc wymaga
+// allowUnassign: true (wyłącznie bool). Pola z błędną definicją NIE da się
+// poprawić: trzeba założyć nowe.
+$client->customFields()->update('pipeline', 'pipeline_str_2', [
+    'assignedTo' => [3, 4, 5],
 ]);
 ```
 

@@ -95,7 +95,8 @@ final readonly class Tickets extends Resource
 
     /**
      * `POST /v2/tickets/{id}/messages` - nowa wiadomość w zgłoszeniu.
-     * Wymagane `text`; `visibility` = `public`/`internal`.
+     * Wymagane `text`; `visibility` = `public` (domyślnie). `internal` od API
+     * 2.14.0 zawsze kończy się 422 - patrz {@see TicketMessageInput}.
      *
      * @param TicketMessageInput|array<string, mixed> $input
      */

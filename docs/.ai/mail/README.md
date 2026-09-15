@@ -79,7 +79,8 @@ z id wiadomosci w `->id` (z pola `messageId`). Dwie decyzje przed wyslaniem:
 
 Transport wybiera sie sam: bez zalacznikow idzie zwykly JSON, z zalacznikami -
 `multipart/form-data` (payload jako JSON w polu `payload`, pliki w
-`attachments[]`, max 50 MB/plik). Wariant z plikami jest BEZ RETRY - to
+`attachments[]`, max 50 MB/plik i 50 MB lacznie z zalacznikami szablonu).
+Wariant z plikami jest BEZ RETRY - to
 kluczowa pulapka (patrz nizej).
 
 ## Mapowanie intencji uzytkownika na dane API
@@ -266,6 +267,11 @@ echo "Utworzono szablon #{$template->id}.\n";
   ponawiany - powtorka po timeoutcie, ktory w rzeczywistosci doszedl, to drugi
   mail u odbiorcy. Po `TransportException` NIE ponawiaj automatycznie; najpierw
   sprawdz, czy mail nie wyszedl.
+- **Zalaczniki razem najwyzej 50 MB** (API >= 2.14.0), liczac pliki z zadania
+  i zalaczniki szablonu (`templateId`). Powyzej: 422 `body.attachmentsTooLarge`
+  na polu `attachments`, zanim wiadomosc zostanie przyjeta - mail nie wychodzi,
+  wiec mozna bezpiecznie poprawic i wyslac ponownie. Duze pliki wrzuc do DMS
+  i wyslij link.
 - **Konto: `accountId` ALBO `account`, nie zgaduj.** Jesli uzytkownik nie
   wskaze konta jednoznacznie, odpytaj `accounts()` i dopytaj przy kilku
   kandydatach.

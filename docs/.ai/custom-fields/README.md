@@ -85,8 +85,13 @@ $result = $client->customFields()->create(new CustomFieldInput(
 ));
 $key = $result->data['key'];   // np. "contractor_str_3" - zapisz po swojej stronie
 
-// Zmiana PRZYPISANIA pola do uzytkownikow (jedyna edycja definicji przez API).
-$client->customFields()->update('contractor', $key, ['assignedTo' => [7, 12]]);
+// Zmiana PRZYPISANIA pola do PODTYPOW rekordow (jedyna edycja definicji przez API).
+// Tylko encje z przypisaniami: note (typy notatek), ticket (procesy zgloszen),
+// service (pozycje katalogu uslug), lead (procesy leadowe), pipeline (lejki).
+// assignedTo to KOMPLETNA lista docelowa - np. pole dla wszystkich lejkow po
+// dolozeniu nowego lejka:
+$funnelIds = array_map(fn ($f) => $f->id, $client->dictionaries()->pipelineFunnels());
+$client->customFields()->update('pipeline', 'pipeline_str_3', ['assignedTo' => $funnelIds]);
 ```
 
 Zakładaj pola IDEMPOTENTNIE: etykieta (`name`) jest unikalna w encji, więc
@@ -136,6 +141,16 @@ i mogłoby założyć duplikat).
 
 - **`key` generuje CRM.** Nie zgadujesz go - odczytujesz z `list()` albo z wyniku
   `create()`. Etykieta (`name`) jest unikalna, klucz jest pochodną.
+- **`assignedTo` to id PODTYPÓW, nie użytkowników.** Dotyczy wyłącznie encji
+  `note`, `ticket`, `service`, `lead`, `pipeline` i dla nich jest wymagane już
+  przy zakładaniu. Dostęp osób do pola ustawia `editableBy`. Od API 2.14.0
+  nieistniejący podtyp to 422 i pole nie powstaje.
+- **Zwężenie `assignedTo` kasuje dane.** Usunięcie podtypu z listy kasuje
+  wartości pola w rekordach tego podtypu - dlatego wymaga `allowUnassign: true`.
+  Tylko bool: napis `"false"` był dotąd brany za zgodę; od API 2.14.0 to 422.
+- **`editableBy` tylko w kształcie `{userIds, departmentIds, groupIds}`.** Inny
+  kształt (`userId`, płaska lista id) od API 2.14.0 to 422 - wcześniej powstawało
+  pole widoczne dla wszystkich.
 - **`editableBy` przy zakładaniu podawaj ZAWSZE.** Pole założone bez ACL przyjmuje
   odczyt, ale KAŻDY zapis wartości kończy się 422 - i definicji nie da się
   poprawić (trzeba założyć nowe pole).

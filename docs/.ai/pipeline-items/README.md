@@ -180,7 +180,8 @@ $client->pipelineItems()->update(7, new PipelineItemInput(
 Ta sama szansa jest adresowana różnymi nazwami pól w innych zasobach (to kontrakt,
 nie literówka):
 
-- `pipelineItemId` w `TaskInput` (zadanie powiązane z szansą),
+- `pipelineItemId` w `TaskInput` (zadanie powiązane z szansą; od API 2.13.0 także
+  w odczycie `Task` i jako filtr `tasks()->list(['pipelineItemId' => ...])`),
 - `pipelineId` w notatce (`Note`),
 - `salesPipelineId` w leadzie (`Lead`) i dokumencie (`GeneratedDocument`).
 

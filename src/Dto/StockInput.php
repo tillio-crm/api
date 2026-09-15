@@ -14,7 +14,9 @@ final readonly class StockInput implements Arrayable
 {
     /**
      * @param string|null $quantity docelowy stan absolutny (np. "12.500")
-     * @param string|null $adjustBy korekta względna (np. "-2", "0.5")
+     * @param string|null $adjustBy korekta względna (np. "-2", "0.5"); NIE atomowa w CRM -
+     *                              równoległe korekty tej samej pary produkt/magazyn mogą się
+     *                              nadpisać, wysyłaj je po kolei
      */
     public function __construct(
         public ?string $quantity = null,

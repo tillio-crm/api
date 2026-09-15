@@ -64,7 +64,8 @@ final readonly class Notes extends Resource
 
     /**
      * `POST /v2/contractors/{contractorId}/notes` - nowa notatka u kontrahenta.
-     * Wymagane `noteTypeId` i `title`.
+     * Wymagane `noteTypeId` i `title`. Pod osobą kontaktową:
+     * `contacts()->createNote()`, pod leadem: `leads()->createNote()`.
      *
      * @param NoteInput|array<string, mixed> $input
      */

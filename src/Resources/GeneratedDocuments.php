@@ -201,6 +201,10 @@ final readonly class GeneratedDocuments extends Resource
      * `POST /v2/contractors/{contractorId}/documents` - wygenerowanie dokumentu.
      * Wymagane `documentTypeId`; pola `data` wg {@see typeForm()}.
      *
+     * Od API 2.14.0: typ ze `store=false` to 422 `document.typeNotStored` (CRM
+     * wysyłałby plik do przeglądarki zamiast odpowiedzi), a `updatePipeline`
+     * przy typie z szablonem HTML to 422 `document.updatePipelineUnsupported`.
+     *
      * @param GeneratedDocumentInput|array<string, mixed> $input
      */
     public function create(int $contractorId, GeneratedDocumentInput|array $input): WriteResult
@@ -213,7 +217,9 @@ final readonly class GeneratedDocuments extends Resource
 
     /**
      * `POST /v2/documents/{id}/regenerate` - ponowne wygenerowanie (np. po
-     * poprawce danych); `data` nadpisuje pola formularza.
+     * poprawce danych); `data` nadpisuje pola formularza. Te same odmowy co
+     * w {@see create()}: `store=false` i `updatePipeline` na dokumencie
+     * z szablonu HTML to 422 (od API 2.14.0).
      *
      * @param GeneratedDocumentInput|array<string, mixed> $input
      */

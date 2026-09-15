@@ -126,6 +126,7 @@ nie pobieraj plików "przez proxy", zawsze przez `downloadUrl`.
 - **DMS: tylko `publicId`.** Liczbowe `id` w ścieżce dokumentu nie działa.
 - **Pole FILE nie przez `customField`.** Zapis/odczyt pliku pola FILE to osobne
   metody `customFields()->*FieldFile()`, nie PUT rekordu.
-- **Limity różne:** DMS 128 MB, załączniki notatek/zadań 128 MB, mail 50 MB/plik,
+- **Limity różne:** DMS 128 MB, załączniki notatek/zadań 128 MB, mail 50 MB/plik
+  i 50 MB łącznie z załącznikami szablonu,
   pole niestandardowe FILE 25 MB.
 - **`downloadUrl === null` to nie brak pliku** - to środowisko bez podpisywania.

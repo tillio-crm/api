@@ -393,7 +393,7 @@ vendor/bin/phpunit
 vendor/bin/phpstan analyse --memory-limit=1G
 ```
 
-Zestaw zawiera test kontraktowy (`RouteCoverageTest` - każda z 230 tras mapy
+Zestaw zawiera test kontraktowy (`RouteCoverageTest` - każda z 232 tras mapy
 wskazuje istniejącą metodę SDK; pełne porównanie 1:1 ze specyfikacją instancji
 włączysz, pobierając `GET /v2/openapi.json` i ustawiając `TILLIO_OPENAPI_FILE`)
 oraz test przenośności (zero zależności spoza `TillioCrm\Api` w `src/`).

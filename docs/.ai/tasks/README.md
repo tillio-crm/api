@@ -29,6 +29,7 @@ na id (patrz niżej).
 | "pilne" / "wysoki priorytet" | `priority` (int) | kontrakt nie definiuje skali; jeśli nie znasz mapowania tej instancji - pomiń albo dopytaj, nie zgaduj liczby |
 | "u kontrahenta Acme" | `contractorId` | `contractors()->list(['name' => 'Acme'])` |
 | "osoba kontaktowa Jan Kowalski" | `contactId` (API >= 2.8.0) | `contacts()->list([...])`, dopasuj osobę |
+| "przy szansie Oferta dla Acme" | `pipelineItemId` | `pipelineItems()->list([...])`, dopasuj szansę (playbook pipeline-items) |
 | "status W toku" | `taskStatusId` | `dictionaries()->taskStatuses()`, dopasuj nazwę |
 | "prowadzący: Piotr" | `ownerUserId` | `resolveUserId()` jak wykonawcy |
 
@@ -201,6 +202,17 @@ $templates = $client->tasks()->templateCategories();   // kategorie szablonow
   danej instancji - wtedy dopytaj, nie wstawiaj przypadkowego id.
 - **Odczyt vs zapis**: `Task` (odczyt) ma pola, których `TaskInput` nie przyjmuje
   (np. `estimatedTime`, `projectId`, `endDate`) - są ustawiane po stronie CRM.
+- **`pipelineItemId` musi pasować do kontrahenta zadania (API >= 2.13.0).** Szansa
+  innego kontrahenta niż `contractorId` to 422 na `pipelineItemId`; bez
+  `contractorId` zadanie dostaje kontrahenta szansy. W `update()` sama zmiana
+  `contractorId` odpina szansę, a przejście do szansy innego kontrahenta wymaga
+  `contractorId` i `pipelineItemId` razem. Zadania szansy odczytasz przez
+  `tasks()->list(['pipelineItemId' => $id])` (pole `Task->pipelineItemId`).
+- **`priority` razem z innymi polami w `update()`** (API >= 2.14.0). CRM zapisuje
+  priorytet osobną operacją, więc API robi dwa zapisy i lądują wszystkie pola.
+  Gdy drugi zapis się nie uda, dostaniesz 422 `task.partialUpdate` z listą pól
+  zapisanych i odrzuconych - to zapis częściowy, nie "nic się nie stało". Na
+  instancji < 2.14.0 takie żądanie zapisywało SAM priorytet z odpowiedzią 200.
 - **"Najbliższy piątek" a `next friday`.** PHP `new DateTimeImmutable('next friday')`
   daje NASTĘPNY piątek i POMIJA dzisiaj, gdy dziś jest piątek. Jeśli użytkownik
   mówi "najbliższy piątek" (zwykle: najwcześniejszy nadchodzący, także dziś),
