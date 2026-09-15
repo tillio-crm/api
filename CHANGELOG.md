@@ -5,11 +5,13 @@ z perspektywy konsumenta SDK; wpisy grupowane per wydanie (przy 0.1.0 wszystko
 jest nowe, od kolejnych wydań sekcje Dodane/Zmienione/Naprawione).
 Wersjonowanie: semver (przed 1.0.0 zmiany łamiące = minor).
 
-## [Unreleased]
+## [0.3.0] - 2026-09-15
 
-Dostosowanie do kontraktów API 2.13.0 i 2.14.0: leady bez dubli (create-or-attach
-i batch upsert), adresy e-mail leada w zapisie, notatka pod leadem, szansa
-sprzedaży w odczycie zadania oraz dokumentacja zaostrzonych reguł z 2.14.0.
+Wydanie z dostosowaniem do kontraktów API 2.13.0 i 2.14.0: leady bez dubli
+(create-or-attach i batch upsert), adresy e-mail leada w zapisie, notatka pod
+leadem, szansa sprzedaży w odczycie zadania oraz dokumentacja zaostrzonych reguł
+z 2.14.0. Minor, bo doszły nowe metody i pola; uwaga na zmianę zachowania
+`leads()->create()` po stronie API - szczegóły w Zmienione.
 
 ### Dodane
 
@@ -215,6 +217,7 @@ Pierwsze wydanie. Wymaga Tillio API v2 w wersji **co najmniej 2.0.4**
 - Selfcheck z raportem (HTTP 500 z raportem dryfu to wynik, nie awaria),
   `health()`, `whoami()`, `openapi()`, `modules()`.
 
-[Unreleased]: https://github.com/tillio-crm/api/compare/0.2.0...HEAD
+[Unreleased]: https://github.com/tillio-crm/api/compare/0.3.0...HEAD
+[0.3.0]: https://github.com/tillio-crm/api/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/tillio-crm/api/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/tillio-crm/api/releases/tag/0.1.0

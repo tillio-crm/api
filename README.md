@@ -53,7 +53,9 @@ jednorazowe hasła) są zneutralizowane w kodzie, zanim żądanie w ogóle wyjdz
   zadaniach i wydarzeniach od **2.8.0**, połączenia telefoniczne, SMS i lookup
   po numerze od **2.10.0**, integracja Tillio Calls od **2.11.0**, linki
   "otwórz w CRM" (`Note::$url`, `Contact::$url`) i pełne rekordy w lookupie
-  po numerze od **2.12.0**. Wywołanie
+  po numerze od **2.12.0**, leady bez dubli (`WriteOptions` w `leads()->create()`,
+  `leads()->upsert()`), adresy e-mail leada w zapisie, notatka pod leadem
+  i szansa sprzedaży w odczycie zadania od **2.13.0**. Wywołanie
   funkcji, której CRM instalacji jeszcze nie ma, kończy się `FeatureNotSupportedException`
   (501); trasy spoza wersji API - błędem 404.
 
