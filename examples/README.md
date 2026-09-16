@@ -2,9 +2,10 @@
 
 Minimalny, działający przykład w czystym PHP: sprawdzenie konfiguracji, odczyt
 listy kontrahentów i jeden zapis (utworzenie zadania). To punkt startowy -
-pełne przykłady na każdy z 22 zasobów są w [../docs/examples/](../docs/examples/).
+pełne przykłady, osobno dla każdego zasobu i metod systemowych (24 pliki),
+są w [../docs/examples/](../docs/examples/).
 
-## Uruchomienie
+## Uruchomienie (klon repozytorium SDK)
 
 1. W katalogu głównym projektu zainstaluj zależności:
    ```bash
@@ -22,6 +23,23 @@ pełne przykłady na każdy z 22 zasobów są w [../docs/examples/](../docs/exam
    ```bash
    php examples/quickstart.php
    ```
+
+## Uruchomienie po instalacji Composerem
+
+Po `composer require tillio-crm/api` ten katalog jest w
+`vendor/tillio-crm/api/examples/`. Konfiguracji nie kopiuj do `vendor/`
+(`composer update` ją usunie) - trzymaj ją we własnym projekcie i wskaż
+zmienną środowiskową `TILLIO_EXAMPLES_CONFIG`:
+
+```bash
+cp vendor/tillio-crm/api/examples/config.example.php tillio-config.php
+# uzupełnij tillio-config.php, potem:
+TILLIO_EXAMPLES_CONFIG=tillio-config.php php vendor/tillio-crm/api/examples/quickstart.php
+```
+
+W PowerShell: `$env:TILLIO_EXAMPLES_CONFIG = "tillio-config.php"`, potem
+`php vendor/tillio-crm/api/examples/quickstart.php`. Dopisz `tillio-config.php`
+do `.gitignore` swojego projektu - plik zawiera sekret.
 
 ## Pliki
 

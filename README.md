@@ -375,8 +375,11 @@ cichu zamienić się w żądania bez nagłówka).
 
 - **Uruchamialny przykład**: katalog [`examples/`](examples/) - skopiuj
   `config.example.php` do `config.php`, wpisz klucz i odpal
-  `php examples/quickstart.php` (odczyt listy + jeden zapis).
-- **Przykład na każdy zasób**: [`docs/examples/`](docs/examples/) - 23 pliki,
+  `php examples/quickstart.php` (odczyt listy + jeden zapis). Po instalacji
+  Composerem katalog leży w `vendor/tillio-crm/api/examples/` - config trzymaj
+  we własnym projekcie i wskaż go w `TILLIO_EXAMPLES_CONFIG`
+  (szczegóły w [`examples/README.md`](examples/README.md)).
+- **Przykład na każdy zasób**: [`docs/examples/`](docs/examples/) - 24 pliki,
   wszystkie bloki składniowo sprawdzone.
 
 > Integrujesz przez asystenta AI (Claude, Cursor, Copilot)? Wskaż mu katalog

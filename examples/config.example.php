@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 // Skopiuj ten plik do examples/config.php i uzupelnij danymi swojej instancji.
 // config.php jest w .gitignore, bo zawiera sekret - nie trafia do repo.
+// Po instalacji Composerem skopiuj go do wlasnego projektu (nie do vendor/)
+// i wskaz sciezke w zmiennej srodowiskowej TILLIO_EXAMPLES_CONFIG.
 //
 // Tryb bezposredni (wlasny klucz API tenanta). Klucz w formacie "nazwa:klucz"
 // to ten sam klucz co w API v1, wygenerowany w panelu Tillio.

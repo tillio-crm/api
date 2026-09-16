@@ -6,6 +6,10 @@ declare(strict_types=1);
 // i jeden zapis. Uruchom z katalogu glownego projektu:
 //
 //     php examples/quickstart.php
+//
+// Po instalacji Composerem (config we wlasnym projekcie, patrz examples/README.md):
+//
+//     TILLIO_EXAMPLES_CONFIG=tillio-config.php php vendor/tillio-crm/api/examples/quickstart.php
 
 use TillioCrm\Api\Dto\TaskInput;
 use TillioCrm\Api\Exception\TillioApiException;
