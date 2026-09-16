@@ -5,6 +5,25 @@ z perspektywy konsumenta SDK; wpisy grupowane per wydanie (przy 0.1.0 wszystko
 jest nowe, od kolejnych wydań sekcje Dodane/Zmienione/Naprawione).
 Wersjonowanie: semver (przed 1.0.0 zmiany łamiące = minor).
 
+## [0.3.1] - 2026-09-16
+
+Wydanie poprawkowe: uruchamialne przykłady trafiają do paczki z Composera.
+
+### Dodane
+
+- Przykłady z `examples/` uruchomisz po instalacji Composerem: konfigurację
+  trzymasz we własnym projekcie i wskazujesz ją w zmiennej środowiskowej
+  `TILLIO_EXAMPLES_CONFIG`, a `bootstrap.php` znajduje autoloader zarówno
+  w klonie repozytorium, jak i w `vendor/`.
+
+### Naprawione
+
+- Katalog `examples/` jest teraz w paczce z Composera
+  (`vendor/tillio-crm/api/examples/`). Wcześniej był z niej wykluczony, choć
+  README i dokumentacja dla agentów AI do niego odsyłają.
+- Liczba plików z przykładami w README zgadza się ze stanem katalogu
+  `docs/examples/` (24 pliki).
+
 ## [0.3.0] - 2026-09-15
 
 Wydanie z dostosowaniem do kontraktów API 2.13.0 i 2.14.0: leady bez dubli
@@ -217,7 +236,8 @@ Pierwsze wydanie. Wymaga Tillio API v2 w wersji **co najmniej 2.0.4**
 - Selfcheck z raportem (HTTP 500 z raportem dryfu to wynik, nie awaria),
   `health()`, `whoami()`, `openapi()`, `modules()`.
 
-[Unreleased]: https://github.com/tillio-crm/api/compare/0.3.0...HEAD
+[Unreleased]: https://github.com/tillio-crm/api/compare/0.3.1...HEAD
+[0.3.1]: https://github.com/tillio-crm/api/compare/0.3.0...0.3.1
 [0.3.0]: https://github.com/tillio-crm/api/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/tillio-crm/api/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/tillio-crm/api/releases/tag/0.1.0
