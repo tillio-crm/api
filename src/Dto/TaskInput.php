@@ -11,6 +11,8 @@ namespace TillioCrm\Api\Dto;
 final readonly class TaskInput implements Arrayable
 {
     /**
+     * @param int|null                  $priority        0 = standard, 1 = wysoki, 2 = najwyższy; brak = 0.
+     *                                                   Inna wartość to 422 przed zapisem (od API 2.15.0)
      * @param list<int>|null            $assignedUserIds wykonawcy - tylko przy tworzeniu
      * @param int|null                  $contactId       osoba kontaktowa powiązana z zadaniem (od API 2.8.0)
      * @param int|null                  $pipelineItemId  szansa sprzedaży (`pipelineItems()`) - musi należeć do
@@ -19,6 +21,7 @@ final readonly class TaskInput implements Arrayable
      *                                                   kontrahenta to 422 (od API 2.13.0; wcześniej CRM po
      *                                                   cichu nadpisywał kontrahenta albo odpinał szansę).
      *                                                   Odpięcie w `update()`: `['pipelineItemId' => null]`
+     *                                                   (pusty string nie odpina)
      * @param int|null                  $taskStatusId    tylko przy tworzeniu
      * @param array<string, mixed>|null $customField     tylko przy tworzeniu
      * @param string|null               $createdAt       data utworzenia przy imporcie historycznym

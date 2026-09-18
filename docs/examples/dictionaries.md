@@ -36,6 +36,8 @@ $d->serviceInvoiceTypes();
 $d->calendarTypes();          // rodzaje kalendarzy: Tillio, Microsoft, Google
                               // (tylko odczyt; wymaga API >= 2.2.0)
 $d->currencies();             // list<string>: ['PLN', 'EUR', ...]
+$d->leadCategories();         // kategorie leadów (tylko odczyt; API >= 2.15.0)
+$d->leadTags();               // tagi leadów (tylko odczyt; API >= 2.15.0)
 
 $d->createContractorStatus(new DictionaryEntryInput(name: 'Kluczowy', color: '#e57373'));
 $d->createServicePaymentTerm(new DictionaryEntryInput(days: 14, isDefault: true));
@@ -73,5 +75,18 @@ foreach ($d->leadProcesses() as $process) {
     foreach ($process->statuses as $status) {
         $status->type;
     }
+}
+
+// --- Powody zmiany statusu (tylko odczyt; API >= 2.15.0) -----------------------
+// Zakładane w panelu CRM - API przyjmuje wyłącznie ich id.
+foreach ($d->leadStatusChangeReasons(403) as $reason) {
+    $reason->leadStatusId;    // status, do którego należy powód
+    $reason->noteRequired;    // true = zmiana z tym powodem wymaga notatki
+}
+
+// Filtr lejka oddaje jego powody RAZEM ze wspólnymi (pipelineFunnelId === null).
+foreach ($d->pipelineStatusChangeReasons(2, 1) as $reason) {
+    $reason->pipelineStatusId;   // 2 = stracona, 3 = wygrana
+    $reason->isDefault;          // powód wspólny dla wszystkich lejków
 }
 ```

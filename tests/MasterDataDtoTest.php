@@ -11,8 +11,10 @@ use TillioCrm\Api\Dto\CalendarEvent;
 use TillioCrm\Api\Dto\CalendarEventInput;
 use TillioCrm\Api\Dto\CategoryInput;
 use TillioCrm\Api\Dto\Contact;
+use TillioCrm\Api\Dto\ContactInput;
 use TillioCrm\Api\Dto\Contractor;
 use TillioCrm\Api\Dto\ContractorInput;
+use TillioCrm\Api\Dto\DictionaryEntryInput;
 use TillioCrm\Api\Dto\MailTemplateInput;
 use TillioCrm\Api\Dto\Note;
 use TillioCrm\Api\Dto\NoteInput;
@@ -240,6 +242,35 @@ final class MasterDataDtoTest extends TestCase
                 ['customName' => 'Usługa wdrożenia', 'price' => '1500.00'],
             ],
         ], $input->toArray());
+    }
+
+    public function testContactInputCarriesContractorIds(): void
+    {
+        // contractorId dopina kartoteke jako glowna, contractorIds ZASTEPUJE cala
+        // liste (pierwsza = glowna) - to dwa rozne pola kontraktu, oba w PUT.
+        self::assertSame([
+            'firstName' => 'Jan',
+            'contractorId' => 121,
+            'contractorIds' => [121, 122],
+        ], (new ContactInput(firstName: 'Jan', contractorId: 121, contractorIds: [121, 122]))->toArray());
+    }
+
+    public function testDictionaryEntryInputCarriesPerDictionaryFields(): void
+    {
+        // Jeden typ obsluguje rozne slowniki - null pomijamy, wiec w payloadzie
+        // zostaje tylko to, co dany slownik przyjmuje.
+        self::assertSame(
+            ['name' => 'Czeka na klienta', 'color' => '#ffa726', 'isFinal' => true],
+            (new DictionaryEntryInput(name: 'Czeka na klienta', color: '#ffa726', isFinal: true))->toArray(),
+        );
+        self::assertSame(
+            ['name' => 'Punkt odbioru', 'isUnique' => false],
+            (new DictionaryEntryInput(name: 'Punkt odbioru', isUnique: false))->toArray(),
+        );
+        self::assertSame(
+            ['name' => 'Rozmowa', 'icon' => 'fa-phone', 'acl' => ['departmentIds' => [4]]],
+            (new DictionaryEntryInput(name: 'Rozmowa', icon: 'fa-phone', acl: ['departmentIds' => [4]]))->toArray(),
+        );
     }
 
     public function testNoteInputCarriesRelationKeys(): void

@@ -2,9 +2,9 @@
 
 Realizacja polecen uzytkownika dotyczacych kont systemowych CRM: wyszukanie
 pracownika, zalozenie nowego konta z rola i dzialem, przekazanie hasla
-startowego. Pisane dla asystenta AI - zaklada wspolne wzorce z
-[ai_integration.md](../ai_integration.md) (zwlaszcza `resolveUserId()`,
-`findByName()`, `WriteResult` i "Zlota zasade: nie zgaduj id").
+startowego, sprawdzenie kto sie loguje. Pisane dla asystenta AI - zaklada
+wspolne wzorce z [ai_integration.md](../ai_integration.md) (zwlaszcza
+`resolveUserId()`, `findByName()`, `WriteResult` i "Zlota zasade: nie zgaduj id").
 
 Ten zasob pelni dwie role. Po pierwsze jest zrodlem `userId` dla wszystkich
 innych playbookow (wykonawcy zadan, prowadzacy, wlasciciele rekordow) - stad
@@ -22,10 +22,11 @@ nie wysylaj pola).
 |---|---|---|
 | `firstName` | `?string` | imie pracownika; WYMAGANE przy tworzeniu |
 | `lastName` | `?string` | nazwisko; opcjonalne, ale bez niego `resolveUserId()` innych playbookow nie rozpozna osoby |
-| `email` | `?string` | adres logowania, unikalny w instancji; WYMAGANE przy tworzeniu; sluzy tez jako pewny klucz wyszukiwania |
-| `position` | `?string` | stanowisko (opis tekstowy, nie slownik) |
-| `phone` | `?string` | telefon sluzbowy |
-| `gender` | `?string` | plec (wartosc tekstowa wg kontraktu instancji) |
+| `email` | `?string` | LOGIN systemowy, unikalny w instancji; WYMAGANE przy tworzeniu; sluzy tez jako pewny klucz wyszukiwania |
+| `jobTitle` | `?string` | stanowisko (opis tekstowy, nie slownik). Od API 2.16.0 pod ta nazwa - do 2.15.x pole nazywalo sie `position` |
+| `contactPhone` | `?string` | sluzbowy telefon do kontaktu. Od API 2.16.0 pod ta nazwa - do 2.15.x `phone`. Numer niepoprawny wg libphonenumber NIE blokuje zalozenia konta, wraca w `->warnings` |
+| `contactEmail` | `?string` | sluzbowy e-mail do kontaktu, INNY niz login (API >= 2.16.0); adres niepoprawny wraca w `->warnings` |
+| `gender` | `?string` | `male`, `female` albo `unspecified` (brak = `unspecified`); uzywane m.in. w odmianie komunikatow systemu |
 | `userStatusId` | `?int` | status konta; WYMAGANE; id z `dictionaries()->userStatuses()`; status NIEAKTYWNY nie liczy sie do limitu licencji |
 | `departmentId` | `?int` | dzial; id z `dictionaries()->userDepartments()` (dopasuj nazwe albo zaloz dzial) |
 | `roleId` | `?int` | rola i uprawnienia; WYMAGANE; id z `dictionaries()->userRoles()` |
@@ -38,9 +39,28 @@ istotne przy rozwiazywaniu osoby na id:
 | `id` | `int` | to jest szukany `userId` do innych playbookow |
 | `firstName` | `?string` | dopasowanie imienia przy wielu trafieniach po nazwisku |
 | `lastName` | `?string` | filtr `lastName` listy |
-| `email` | `?string` | najpewniejszy klucz - unikalny, jednoznaczny |
+| `email` | `?string` | LOGIN - najpewniejszy klucz wyszukiwania, unikalny i jednoznaczny |
 | `userStatusId` | `?int` | pozwala odsiac konta nieaktywne (np. tylko czynni wykonawcy) |
+| `jobTitle` | `?string` | stanowisko (API >= 2.16.0) |
+| `contactPhone` | `?string` | sluzbowy telefon do kontaktu w formacie miedzynarodowym (API >= 2.16.0) |
+| `contactEmail` | `?string` | sluzbowy e-mail do kontaktu - NIE musi byc tym samym adresem co login (API >= 2.16.0) |
+| `gender` | `?string` | `male`/`female`/`unspecified` (API >= 2.16.0) |
 | `raw` | `array` | pelny surowy rekord z API, gdy potrzebne pole spoza mapowania DTO |
+
+Prywatny telefon i e-mail pracownika, hasla, tokeny i ustawienia 2FA NIGDY nie
+wychodza przez API - w kontrakcie sa wylacznie dane sluzbowe.
+
+Aktywnosc konta: `UserActivity` (`src/Dto/UserActivity.php`, API >= 2.16.0).
+Agregaty licza sie na osobnej trasie, zeby `users()->list()` zostal lekki -
+nie szukaj tych pol w `SystemUser`.
+
+| pole | typ | po co |
+|---|---|---|
+| `userId` | `int` | id uzytkownika (to samo co `SystemUser::$id`) |
+| `lastLoginAt` | `?string` | ostatnie logowanie (ISO 8601, strefa instancji); `null` = nigdy sie nie logowal |
+| `lastActivityAt` | `?string` | ostatnia czynnosc w ktorejkolwiek sesji; `null` = jak wyzej |
+| `loginCount` | `?int` | liczba logowan od poczatku dziennika (0 = nigdy) |
+| `hasEverLoggedIn()` | `bool` | skrot: czy `lastLoginAt` jest niepuste |
 
 Wynik tworzenia: `CreatedUser` (`src/Dto/CreatedUser.php`).
 
@@ -51,6 +71,10 @@ Wynik tworzenia: `CreatedUser` (`src/Dto/CreatedUser.php`).
 | `warnings` | `array` | ciche korekty i ostrzezenia (np. o kalendarzu) - pokaz uzytkownikowi, jesli niepuste |
 
 ## Model danych w skrocie
+
+Metody zasobu: `list()`, `iterate()`, `create()` oraz - od API 2.16.0 -
+`activity()` (strona listy aktywnosci), `iterateActivity()` (pelny przebieg,
+wymuszony `sort=userId`) i `getActivity(int $id)` (jedno konto).
 
 Konto tworzy sie przez `UserInput`, a `users()->create()` zwraca `CreatedUser`
 (NIE `WriteResult` jak wiekszosc zapisow - patrz "Co zwracaja zapisy" w
@@ -77,6 +101,9 @@ nie zgaduj id.
 | "status aktywny" / "konto czynne" | `userStatusId` | `findByName($client->dictionaries()->userStatuses(), 'Aktywny')` |
 | "dzial sprzedaz" | `departmentId` | `findByName($client->dictionaries()->userDepartments(), 'Sprzedaz')` |
 | "tylko czynni pracownicy" | filtr `userStatusId` na liscie | najpierw id statusu "Aktywny", potem `users()->list(['userStatusId' => ...])` |
+| "kto pracuje na stanowisku handlowiec" | filtr `jobTitle` (zawiera) | `users()->list(['jobTitle' => 'Handlowiec'])` (API >= 2.16.0) |
+| "kto sie nie logowal od miesiaca" | `activity()` + sortowanie | `users()->activity(['sort' => 'lastActivityAt', 'sortDir' => 'asc'])` |
+| "kiedy ostatnio logowal sie Jan" | `getActivity($userId)` | najpierw `userId` z listy, potem aktywnosc jednego konta |
 | "zaloz konto, ale jeszcze nieaktywne" | `userStatusId` statusu nieaktywnego | konto nieaktywne nie zajmuje licencji - patrz Pulapki |
 
 ## Scenariusz flagowy: zalozenie konta z rola i dzialem
@@ -185,6 +212,33 @@ foreach ($client->users()->iterate(['userStatusId' => $activeId]) as $user) {
 }
 ```
 
+### Kto sie nie loguje (API >= 2.16.0)
+
+Ostatnie logowanie i ostatnia czynnosc maja WLASNA trase - nie ma ich
+w `users()->list()`. Sortowanie rosnaco po `lastActivityAt` stawia na poczatku
+konta, ktore nigdy sie nie logowaly (`null`).
+
+```php
+$martwe = [];
+foreach ($client->users()->iterateActivity() as $activity) {
+    if (!$activity->hasEverLoggedIn()) {
+        $martwe[] = "#{$activity->userId}: nigdy sie nie logowal";
+        continue;
+    }
+    // Daty przychodza jako ISO 8601 w strefie instancji - porownuj na obiektach.
+    if (new DateTimeImmutable((string) $activity->lastActivityAt) < new DateTimeImmutable('-1 month')) {
+        $martwe[] = "#{$activity->userId}: ostatnia czynnosc {$activity->lastActivityAt}";
+    }
+}
+
+// Jedno konto (np. zanim przypiszesz mu zadanie).
+$activity = $client->users()->getActivity($userId);
+echo "Logowan: {$activity->loginCount}, ostatnie: " . ($activity->lastLoginAt ?? 'nigdy') . "\n";
+```
+
+Konta techniczne nie wychodza przez API: `getActivity()` na takim id daje 404,
+tak samo jak na id nieistniejacym.
+
 ### Konto zakladane jako nieaktywne (bez zajmowania licencji)
 
 ```php
@@ -235,6 +289,16 @@ foreach ($client->dictionaries()->userStatuses() as $status) {
   ze slownikow `dictionaries()`. `findByName()` zwraca null przy braku
   dopasowania - wtedy dopytaj albo zaloz brakujacy wpis, nie wstawiaj liczby
   z glowy.
-- **Odczyt vs zapis.** `SystemUser` (odczyt) niesie okrojony zestaw pol; pelny
-  rekord jest w `->raw`. `UserInput` (zapis) nie przyjmuje `id` ani pol
-  ustawianych po stronie CRM.
+- **`email` to LOGIN, `contactEmail` to adres kontaktowy.** Od API 2.16.0 to dwa
+  rozne pola i moga sie roznic. Do szukania konta uzywaj `email` (dokladne,
+  unikalne); `contactEmail` filtruje tez dokladnie, ale nie jest kluczem.
+- **Zmiana nazw pol zapisu w 2.16.0.** `position` -> `jobTitle`, `phone` ->
+  `contactPhone`. Kod pisany pod starsze SDK trzeba przemianowac; na instancji
+  starszej niz 2.16.0 nowe nazwy sa nieznane, a filtry `jobTitle`/`contactPhone`/
+  `contactEmail`/`gender` na liscie daja 400.
+- **Aktywnosci nie ma w `list()`.** `lastLoginAt`, `lastActivityAt` i `loginCount`
+  zwraca wylacznie `activity()`/`getActivity()` (API >= 2.16.0) - agregaty licza
+  sie osobno, zeby lista kont byla tania.
+- **Odczyt vs zapis.** `SystemUser` (odczyt) niesie dane identyfikacyjne
+  i sluzbowe kontaktowe; pelny rekord jest w `->raw`. `UserInput` (zapis) nie
+  przyjmuje `id` ani pol ustawianych po stronie CRM.

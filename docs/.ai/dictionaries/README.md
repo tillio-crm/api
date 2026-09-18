@@ -29,6 +29,12 @@ Zapis prostego slownika: `DictionaryEntryInput` (`src/Dto/DictionaryEntryInput.p
 | `active` | `?bool` | czy wpis czynny (statusy, zrodla, typy, terminy platnosci) |
 | `days` | `?int` | liczba dni; WYMAGANE dla `service/payment-terms` (0-365), nieuzywane gdzie indziej |
 | `isDefault` | `?bool` | czy wpis domyslny (np. domyslny termin platnosci) |
+| `isFinal` | `?bool` | status koncowy - `task/statuses`, `ticket/statuses` |
+| `icon` | `?string` | ikona z zestawu CRM - `note/types`, `contractor/priorities` |
+| `description` | `?string` | opis widoczny w panelu - `contractor/payment-types` |
+| `isUnique` | `?bool` | jeden adres tego typu na kontrahenta - `address/types` |
+| `passTasks` | `?bool` | zadania projektu przechodza dalej przy zmianie statusu - `project/statuses` |
+| `acl` | `?array` | ograniczenie widocznosci `{userIds?, departmentIds?, groupIds?}` - `note/types`; puste = bez ograniczen |
 
 Odczyt prostego slownika: `DictionaryEntry` (`src/Dto/DictionaryEntry.php`).
 Pola spoza danego slownika przychodza jako null/false i zostaja w `$raw`.
@@ -59,6 +65,21 @@ Wspolny dla etapow zgloszen, lejkow i statusow leadowych - `null` = nie wysylaj.
 
 Odczyt etapu: `ProcessStage` (`src/Dto/ProcessStage.php`) - te same pola co
 input plus `id`; `probability` tylko w lejkach, `type` tylko w leadach.
+
+Powody zmiany statusu (API >= 2.15.0) maja wlasne DTO odczytu:
+`StatusChangeReason` (`src/Dto/StatusChangeReason.php`). Zaklada sie je w panelu
+CRM - API przyjmuje wylacznie ich `id`.
+
+| pole | typ | po co |
+|---|---|---|
+| `id` | `int` | to leci jako `statusChangeReasonId` do `leads()->changeStatus()` albo `pipelineItems()->changeStatus()` |
+| `name` | `?string` | nazwa do dopasowania przez `findByName()` |
+| `active` | `?bool` | nieaktywne tez wracaja - stare rekordy nadal je maja |
+| `noteRequired` | `?bool` | `true` = zmiana z tym powodem WYMAGA notatki (inaczej 422) |
+| `leadStatusId` | `?int` | status leada, do ktorego nalezy powod (tylko slownik leadowy) |
+| `pipelineStatusId` | `?int` | 2 = stracona, 3 = wygrana (tylko slownik szans) |
+| `pipelineFunnelId` | `?int` | lejek powodu; `null` = powod wspolny dla wszystkich lejkow |
+| `isDefault` | `?bool` | powod wspolny (systemowy) dla wszystkich lejkow |
 
 Slowniki zlozone maja wlasne input-DTO: role - `UserRoleInput` (`name` max 32
 znaki, `permissions` jako klucze z `userPermissions()`), procesy zgloszen -
@@ -149,12 +170,16 @@ Pogrupowane wg domeny. Kolumna "zapis" mowi, czy slownik ma `createXxx`/
 | metoda | zapis | po co |
 |---|---|---|
 | `pipelineFunnels()` | + zlozony (`PipelineFunnelInput`) | lejki z etapami (`probability` per etap); etapy przez `createPipelineStage()`/`updatePipelineStage()` |
+| `pipelineStatusChangeReasons(?int $pipelineStatusId, ?int $pipelineFunnelId)` | ro (`StatusChangeReason`) | powody zmiany statusu szansy do `pipelineItems()->changeStatus()`; filtr lejka oddaje jego powody RAZEM ze wspolnymi; API >= 2.15.0 |
 
 ### Leady
 
 | metoda | zapis | po co |
 |---|---|---|
 | `leadProcesses()` | + zlozony (`LeadProcessInput`) | procesy leadowe ze statusami (`type`: default/qualified/disqualified); statusy przez `createLeadStatus()`/`updateLeadStatus()`. UWAGA: trasa to `GET /v2/lead/statuses`, ale zwraca PROCESY |
+| `leadCategories()` | ro | kategorie leadow (`Lead::$categoryId`, zapis `categoryId`); API >= 2.15.0 |
+| `leadTags()` | ro | tagi leadow (`Lead::$leadTagIds`, zapis `leadTagIds`, filtr `leadTagId`); API >= 2.15.0 |
+| `leadStatusChangeReasons(?int $leadStatusId)` | ro (`StatusChangeReason`) | powody zmiany statusu leada do `leads()->changeStatus()`; API >= 2.15.0 |
 
 ### Kalendarze i pozostale
 
@@ -175,6 +200,10 @@ Pogrupowane wg domeny. Kolumna "zapis" mowi, czy slownik ma `createXxx`/
 | "termin platnosci 14 dni" | id terminu | `findByName(servicePaymentTerms(), '14 dni')`; nowy: `createServicePaymentTerm(new DictionaryEntryInput(days: 14))` |
 | "dodaj etap do lejka Sprzedaz" | `WriteResult` | `createPipelineStage($funnelId, new ProcessStageInput(name: 'Negocjacje', probability: 60))` |
 | "jakie sa role w systemie" | `list<UserRole>` | `userRoles()` (odczyt, bez zapisu przez `DictionaryEntryInput`) |
+| "kategoria leada Kampania wiosenna" | `categoryId` | `findByName($client->dictionaries()->leadCategories(), 'Kampania wiosenna')` |
+| "otaguj leada jako VIP" | id tagu do `leadTagIds` | `findByName($client->dictionaries()->leadTags(), 'VIP')` |
+| "dlaczego lead odpadl" (powod dyskwalifikacji) | `statusChangeReasonId` | `leadStatusChangeReasons($leadStatusId)` - sprawdz `noteRequired` |
+| "szansa stracona, bo cena" | `statusChangeReasonId` | `pipelineStatusChangeReasons(2, $funnelId)` |
 
 ## Scenariusz flagowy: rozwiazanie id statusu, a gdy brak - dodanie wpisu
 
@@ -316,5 +345,15 @@ foreach ($client->dictionaries()->currencies() as $code) {
   zapisu poprawnego etapu, 422 `process.partialCreate` podaje id procesu i etapow,
   ktore juz powstaly - nie zakladaj procesu drugi raz, dopisz brakujace etapy.
   Na starszej instancji proces i poprawne etapy zostawaly mimo bledu.
+- **Powodow zmiany statusu, kategorii i tagow leada nie zalozysz z API.** To
+  slowniki TYLKO do odczytu - powstaja w panelu CRM. Gdy `findByName()` nic nie
+  znajdzie, dopytaj uzytkownika albo popros o dodanie pozycji w CRM; nie probuj
+  wysylac nazwy zamiast id.
+- **Powod musi pasowac do statusu.** Leadowy nalezy do jednego statusu
+  KONCZACEGO (`leadStatusId`), a powod szansy do statusu 2 albo 3 i do lejka
+  (albo jest wspolny, `pipelineFunnelId === null`). Powod z innego zestawu to
+  422 - filtruj slownik parametrami, nie recznie po nazwie.
+- **`noteRequired` to warunek twardy.** Zmiana z takim powodem bez notatki konczy
+  sie 422; sprawdz flage ZANIM wywolasz `changeStatus()`.
 - **`calendarTypes()` wymaga API >= 2.2.0.** Na starszej instancji trasa nie
   istnieje - sprawdz `health()['version']` albo obsluz `ServiceUnavailableException`.

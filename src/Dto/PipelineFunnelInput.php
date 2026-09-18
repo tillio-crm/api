@@ -11,6 +11,9 @@ namespace TillioCrm\Api\Dto;
 final readonly class PipelineFunnelInput implements Arrayable
 {
     /**
+     * @param array<string, mixed>|null                        $acl    ograniczenie widoczności
+     *                                                                 `{userIds?, departmentIds?, groupIds?}`;
+     *                                                                 puste = bez ograniczeń
      * @param list<ProcessStageInput|array<string, mixed>>|null $stages etapy zakładane razem z lejkiem
      */
     public function __construct(
@@ -19,6 +22,7 @@ final readonly class PipelineFunnelInput implements Arrayable
         public ?bool $requireChangeReason = null,
         public ?bool $automaticAmountUpdate = null,
         public ?bool $active = null,
+        public ?array $acl = null,
         public ?array $stages = null,
     ) {
     }
@@ -39,6 +43,7 @@ final readonly class PipelineFunnelInput implements Arrayable
             'requireChangeReason' => $this->requireChangeReason,
             'automaticAmountUpdate' => $this->automaticAmountUpdate,
             'active' => $this->active,
+            'acl' => $this->acl,
             'stages' => $stages,
         ]);
     }

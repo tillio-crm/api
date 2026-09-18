@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace TillioCrm\Api\Resources;
 
+use TillioCrm\Api\Dto\Cast;
 use TillioCrm\Api\Dto\Lead;
 use TillioCrm\Api\Dto\LeadInput;
 use TillioCrm\Api\Dto\NoteInput;
@@ -30,13 +31,18 @@ final readonly class Leads extends Resource
      *
      * Filtry (komplet wg kontraktu): `leadStatusId`, `leadStageId` (statusy i
      * etapy z procesów leadowych: `dictionaries()->leadProcesses()`), `ownerUserId`,
-     * `title`, `taxId`, `id`, `statusChangeReasonId`, `categoryId`,
-     * `contractorSourceId` (`dictionaries()->contractorSources()`), `priority`,
+     * `title`, `taxId`, `id`, `statusChangeReasonId`, `categoryId`
+     * (`dictionaries()->leadCategories()`), `leadTagId` (jeden tag na żądanie,
+     * `dictionaries()->leadTags()`), `contractorSourceId`
+     * (`dictionaries()->contractorSources()`), `priority`,
      * `creatorUserId`, `contractorId`, `contactId`, `salesPipelineId`, `companyName`,
      * `regon`, `domain`, `firstName`, `lastName`, `position`, `phone`,
-     * `phoneAlternative`, `street`, `postCode`, `city`, `region`, `country`,
-     * `updatedAfter`/`updatedBefore`, `createdAfter`/`createdBefore`,
+     * `phoneAlternative`, `street`, `postCode`, `city`, `region`, `district`,
+     * `country`, `updatedAfter`/`updatedBefore`, `createdAfter`/`createdBefore`,
      * `customField[klucz]`, `sort`/`sortDir`, `page`/`limit`.
+     *
+     * `leadTagId` i `district` wymagają API >= 2.15.0 - starsza instancja
+     * odrzuci nieznany parametr błędem 400.
      *
      * @param array<string, mixed> $filters
      *
@@ -75,9 +81,10 @@ final readonly class Leads extends Resource
      * (którykolwiek adres z `emails`) i `phone`; `duplicateCheck` zmienia pola
      * i ich priorytet (`email`, `phone`, `taxId`, `domain`, `companyName`,
      * `custom:<klucz>`). Trafienie nadpisuje tylko `customField`: puste pola są
-     * uzupełniane, adresy z `emails` dokładane, telefon trafia w wolny numer,
-     * a pola tylko do tworzenia (`leadStatusId`, `contractorSourceId`,
-     * `createdAt`, `creatorUserId`) wracają w `warnings`. Wynik: `created === false`,
+     * uzupełniane, adresy z `emails` dokładane, tagi z `leadTagIds` DOKŁADANE
+     * (od API 2.15.0 - istniejące zostają), telefon trafia w wolny numer,
+     * a pola tylko do tworzenia (`leadStatusId`, `createdAt`, `creatorUserId`)
+     * wracają w `warnings`. Wynik: `created === false`,
      * `matchedBy()` i `id` istniejącego leada; gdy ten lead jest już skonwertowany,
      * `duplicate->raw['contractorId']` wskazuje kontrahenta - to już klient.
      *
@@ -103,9 +110,16 @@ final readonly class Leads extends Resource
 
     /**
      * `PUT /v2/leads/{id}` - aktualizacja pól podanych w input. `emails`
-     * (od API 2.13.0) to tu KOMPLETNA lista docelowa: zastępuje dotychczasową,
-     * a `[]` usuwa wszystkie adresy - inaczej niż podpięcie w `create()`, które
-     * adresy dokłada.
+     * (od API 2.13.0) i `leadTagIds` (od API 2.15.0) to tu KOMPLETNE listy
+     * docelowe: zastępują dotychczasowe, a `[]` czyści je do zera - inaczej niż
+     * podpięcie w `create()`, które adresy i tagi dokłada.
+     *
+     * Zdjęcie kategorii wymaga jawnego nulla, więc tablicy zamiast DTO:
+     * `update($id, ['categoryId' => null])` - w `LeadInput` null znaczy
+     * "nie wysyłaj pola".
+     *
+     * `leadStatusId` tu nie przechodzi (422 `body.fieldNotUpdatable`) - status
+     * zmienia {@see changeStatus()}.
      *
      * @param LeadInput|array<string, mixed> $input
      */
@@ -139,6 +153,32 @@ final readonly class Leads extends Resource
         }
 
         return UpsertResult::fromResponse($this->client->post('v2/leads/upsert', ['items' => $rows] + $opts));
+    }
+
+    /**
+     * `POST /v2/leads/{id}/status` - zmiana statusu leada (od API 2.15.0).
+     * W CRM to proces z historią, nie zwykły zapis pola, dlatego osobna trasa:
+     * CRM dopisuje wpis do historii statusów, ustawia `closedAt` i grupę
+     * statusów (`leadStageId`). Status z innego procesu leadowego też przejdzie -
+     * lead trafia do jego grupy.
+     *
+     * `statusChangeReasonId` (`dictionaries()->leadStatusChangeReasons($leadStatusId)`)
+     * i `note` (do 255 znaków) przyjmują WYŁĄCZNIE statusy kończące (`type` =
+     * `qualified`/`disqualified` w `dictionaries()->leadProcesses()`); przy statusie
+     * `default` oba dają 422. Powód z `noteRequired` bez `note` to też 422.
+     *
+     * Odpowiedź niesie leada po zmianie: `WriteResult::$data` (zmapujesz przez
+     * `Lead::fromArray()`) i `WriteResult::$warnings`.
+     */
+    public function changeStatus(int $id, int $leadStatusId, ?int $statusChangeReasonId = null, ?string $note = null): WriteResult
+    {
+        $payload = Cast::withoutNulls([
+            'leadStatusId' => $leadStatusId,
+            'statusChangeReasonId' => $statusChangeReasonId,
+            'note' => $note,
+        ]);
+
+        return WriteResult::fromResponse($this->client->post(sprintf('v2/leads/%d/status', $id), $payload), 'leadId');
     }
 
     /**

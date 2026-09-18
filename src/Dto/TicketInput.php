@@ -14,6 +14,8 @@ namespace TillioCrm\Api\Dto;
 final readonly class TicketInput implements Arrayable
 {
     /**
+     * @param int|null                  $priority          0 = standard, 1 = wysoki, 2 = najwyższy; brak = 0.
+     *                                                     Inna wartość to 422 przed zapisem (od API 2.15.0)
      * @param int|null                  $contractorId      tylko przy tworzeniu
      * @param int|null                  $ticketStatusId    tylko przy tworzeniu
      * @param int|null                  $ticketStageId     tylko przy tworzeniu

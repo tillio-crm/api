@@ -236,6 +236,18 @@ $unlinked = $client->contractors()->list([
 - **`custom:erp_id` w `duplicateCheck` wymaga wartości w `customField`.**
   Sam wpis w `duplicateCheck` nie wystarczy - wartość klucza musi być
   w `customField['erp_id']`, inaczej strażnik przerwie zapis.
+- **`requireDuplicateCheck: true` to tryb importu.** Wtedy KAŻDE pole
+  z `duplicateCheck` musi mieć wartość w żądaniu - brak choćby jednego to 422
+  z nazwą tego pola (w `upsert()` pojedyncza pozycja dostaje status `failed`).
+  Użyj go, gdy wolisz odrzucić rekord niż założyć cichy duplikat.
+- **Do wyszukania duplikatu NIE normalizuj danych po swojej stronie.** Od API
+  2.15.0 porównanie jest odporne na format: telefon z plusem i bez, z zerem
+  wiodącym, domena z `www.` albo bez, NIP z prefiksem `PL` albo bez, wielkość
+  liter w e-mailu i domenie. Rekordy zapisane w CRM w starym formacie też się
+  znajdują - wysyłaj dane tak, jak je masz.
+- **NIP, telefon, e-mail i domenę API normalizuje przy zapisie.** Wartość
+  niepoprawna nie zapisuje się i wraca w `->warnings` - rekord powstaje bez niej.
+  Zasady: "Normalizacja wejścia" w [ai_integration.md](../ai_integration.md).
 - **200 to nie zawsze "utworzono".** POST z trafieniem w duplikat zwraca 200
   z istniejącym rekordem i NIE zmienia jego danych. Rozróżniaj po
   `$result->created`; po czym dopasowano - `$result->matchedBy()`.

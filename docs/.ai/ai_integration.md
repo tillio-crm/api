@@ -67,8 +67,9 @@ na weryfikacji TLS.
 
 ### Rozwiązywanie osoby (imię i nazwisko) na userId
 
-Filtry listy użytkowników: `firstName`, `lastName`, `email`, `userStatusId`.
-Najpewniejszy jest e-mail (unikalny); po nazwisku bywa kilka trafień.
+Filtry listy użytkowników: `firstName`, `lastName`, `email` (LOGIN),
+`userStatusId`, a od API 2.16.0 też `jobTitle`, `contactPhone`, `contactEmail`
+i `gender`. Najpewniejszy jest `email` (unikalny); po nazwisku bywa kilka trafień.
 
 ```php
 /**
@@ -155,6 +156,88 @@ Wyjątki od `WriteResult`: `users()->create()` zwraca `CreatedUser` (z hasłem
 startowym), `stocks()->update()` zwraca `Stock`, część odczytów zwraca DTO
 wprost. Zawsze potwierdź typ zwrotny w sygnaturze metody zasobu.
 
+### Przejścia statusów robi się dedykowaną metodą, nie zapisem pola
+
+Tam, gdzie CRM prowadzi historię, API ma osobną trasę i zwykły `update()` odbija
+takie pole błędem 422 `body.fieldNotUpdatable`. Nie kombinuj z PUT - użyj metody:
+
+| Chcesz | Metoda (API >= 2.15.0) | Zamiast |
+|---|---|---|
+| zmienić status leada (kwalifikacja, dyskwalifikacja, powrót) | `leads()->changeStatus($id, $leadStatusId, $reasonId, $note)` | `leads()->update()` z `leadStatusId` |
+| przesunąć szansę na inny etap | `pipelineItems()->changeStage($id, $stageId)` | `pipelineItems()->update()` z `pipelineStageId` |
+| zamknąć szansę (wygrana/stracona) albo otworzyć ponownie | `pipelineItems()->changeStatus($id, $statusId, $reasonId, $note)` | `pipelineItems()->update()` z `pipelineStatusId` |
+
+Powód zmiany (`statusChangeReasonId`) bierzesz ze słownika DOPASOWANEGO do
+docelowego statusu: `dictionaries()->leadStatusChangeReasons($leadStatusId)` albo
+`dictionaries()->pipelineStatusChangeReasons($statusId, $funnelId)`. Sprawdź
+`noteRequired` - przy takim powodzie notatka jest obowiązkowa, a bez niej API
+odrzuca zapis. Powód i notatka mają sens WYŁĄCZNIE przy statusach kończących;
+przy zwykłym przejściu (lead) i przy ponownym otwarciu szansy oba dają 422.
+
+### Własny klucz integracji: pole niestandardowe plus filtr
+
+Zapisy CRM nie są idempotentne - powtórzony `create()` zakłada drugi rekord.
+Wykrywanie duplikatu ma tylko część zasobów (kontrahenci, kontakty, produkty,
+leady - przez `WriteOptions`), a szansa sprzedaży nie ma go wcale i nie przyjmuje
+`externalId` w zapisie (to pole wyłącznie odczytu i filtra). Wzorzec, który
+działa wszędzie: trzymaj SWÓJ identyfikator w polu niestandardowym i sprawdź go
+filtrem PRZED zapisem.
+
+```php
+// Klucz po stronie integracji (np. id zgłoszenia z formularza albo z ERP).
+$externalKey = 'ZAP-1042';
+
+// Krok 1: czy taki rekord już jest? customField[<klucz>] filtruje dokładnie.
+$existing = $client->pipelineItems()->list([
+    'customField' => ['zapier_id' => $externalKey],
+    'limit'       => 1,
+])->first();
+
+// Krok 2: zapis albo aktualizacja - nigdy "na ślepo" drugi create().
+if ($existing === null) {
+    $client->pipelineItems()->create(new TillioCrm\Api\Dto\PipelineItemInput(
+        name: 'Zapytanie z formularza',
+        pipelineStageId: $stageId,
+        contractorId: $contractorId,
+        customField: ['zapier_id' => $externalKey],
+    ));
+} else {
+    $client->pipelineItems()->update($existing->id, ['amount' => '12000.00']);
+}
+```
+
+Dla leadów i kontrahentów ten sam klucz podaje się dodatkowo jako
+`duplicateCheck: ['custom:zapier_id']` - wtedy sprawdzenie robi API w jednym
+żądaniu, a SDK pilnuje lokalnie, że wartość klucza faktycznie jest w payloadzie.
+
+### Normalizacja wejścia: co API poprawia, a co odrzuca
+
+API sprowadza dane do kanonu CRM po swojej stronie - nie normalizuj ich sam
+przed wysyłką. Wartość, której nie da się uratować, NIE zapisuje się: pole jest
+pomijane, a oryginał wraca w `WriteResult::$warnings` pod nazwą tego pola.
+Reszta rekordu powstaje normalnie, więc **cisza w kodzie nie znaczy, że komplet
+danych wszedł** - czytaj ostrzeżenia i pokazuj je użytkownikowi.
+
+| Dane | Co robi API | Kiedy odrzuca (ostrzeżenie zamiast zapisu) |
+|---|---|---|
+| telefon | sprowadza do E.164 przez libphonenumber (9 cyfr = `+48...`, prefiks kraju bez plusa rozpoznawany, stary zapis stacjonarny z zerem wiodącym też) | numer niepoprawny dla swojego kraju: za krótki, za długi, z doklejonym numerem wewnętrznym ("600 100 300 w. 12"), numer testowy spoza planu numeracji. W `lookup()->phone()` taki numer to 422 |
+| NIP | bez prefiksu kraju = polski (10 cyfr, separatory zdejmowane, prefiks `PL` pomijany); z prefiksem kraju z listy (cała Europa z GB, CH i NO oraz US, CA, AU, NZ) sprawdzany co do formatu tego kraju i zapisywany z prefiksem; kraj spoza listy - jak podano, bez spacji na końcach | zła długość polskiego NIP-u albo format niezgodny z krajem prefiksu |
+| REGON, PESEL | zapisywane bez walidacji formatu | nigdy |
+| e-mail, domena, URL | walidowane; e-mail przyjmuje domeny z narodowymi znakami, domena przyjmuje też URL i e-mail (część po `@`) | wartość niepoprawna |
+| tekst | wycina tagi HTML i znaki sterujące, ciągi spacji skleja do jednej, łamania linii zostają | nigdy (co najwyżej zostaje krótszy tekst) |
+| HTML (treść notatki, szablon notatki, opisy zgłoszeń, zadań, projektów, notatki leada i szansy) | czyści do bezpiecznego podzbioru jak edytor CRM: bez skryptów, iframe, zdarzeń i osadzonych obrazków, linki dostają `target=_blank` | treść pusta PO wycięciu - pole pomijane z ostrzeżeniem |
+
+Konsekwencje, o których warto pamiętać:
+
+- **Numery w danych testowych i przykładach muszą być prawdziwe składniowo.**
+  `+48000000000` nie jest poprawnym numerem polskim i nie zapisze się.
+- **Do `duplicateCheck` wysyłaj dane tak, jak je masz.** Porównanie jest odporne
+  na format (telefon z plusem i bez, z zerem wiodącym, domena z `www.`, NIP
+  z `PL`, wielkość liter w e-mailu) i trafia też rekordy zapisane w CRM w starym
+  formacie.
+- **Ostrzeżenie to nie błąd.** Rekord powstaje, zapis zwraca 200/201 - jedyny
+  ślad po pominiętym polu jest w `->warnings`.
+
 ### Helpery w playbookach nie są częścią SDK
 
 Funkcje `resolveUserId()` i `findByName()` z tego pliku to WZORCE do wklejenia
@@ -203,8 +286,8 @@ z gotowym kodem, warianty i pułapki):
 | Kontrahenci | [contractors/README.md](contractors/README.md) | "dodaj kontrahenta", "znajdź firmę po NIP", "zaktualizuj adres" |
 | Kontakty | [contacts/README.md](contacts/README.md) | "dodaj osobę kontaktową", "podepnij kontakt do firmy" |
 | Notatki | [notes/README.md](notes/README.md) | "zapisz notatkę u kontrahenta", "dodaj notatkę z załącznikiem" |
-| Leady | [leads/README.md](leads/README.md) | "dodaj leada", "zarejestruj zapytanie z formularza bez dubla", "dopisz notatkę do leada" |
-| Szanse sprzedaży | [pipeline-items/README.md](pipeline-items/README.md) | "dodaj szansę w lejku", "przesuń na etap" |
+| Leady | [leads/README.md](leads/README.md) | "dodaj leada", "zarejestruj zapytanie z formularza bez dubla", "dopisz notatkę do leada", "zakwalifikuj leada" |
+| Szanse sprzedaży | [pipeline-items/README.md](pipeline-items/README.md) | "dodaj szansę w lejku", "przesuń na etap", "oznacz jako wygraną" |
 | Zgłoszenia | [tickets/README.md](tickets/README.md) | "utwórz zgłoszenie", "dopisz wiadomość do ticketa" |
 | Projekty | [projects/README.md](projects/README.md) | "załóż projekt dla klienta" |
 | Usługi | [services/README.md](services/README.md) | "dodaj usługę kontrahentowi z katalogu" |
@@ -221,7 +304,7 @@ z gotowym kodem, warianty i pułapki):
 | Poczta | [mail/README.md](mail/README.md) | "wyślij mail z załącznikiem", "użyj szablonu" |
 | Połączenia | [phone-calls/README.md](phone-calls/README.md) | "zapisz połączenie telefoniczne", "historia rozmów kontrahenta" |
 | SMS | [text-messages/README.md](text-messages/README.md) | "wyślij SMS-a do klienta", "zapisz wiadomość SMS" |
-| Lookup po numerze | [lookup/README.md](lookup/README.md) | "kto dzwoni z tego numeru", "znajdź kontakt po telefonie" |
+| Lookup po numerze i adresie | [lookup/README.md](lookup/README.md) | "kto dzwoni z tego numeru", "znajdź kontakt po telefonie", "kto pisze z tego adresu" |
 | Integracje | [integrations/README.md](integrations/README.md) | "sprawdź dostępne integracje", "dane integracji instancji" |
 | Baza wiedzy | [wiki/README.md](wiki/README.md) | "dodaj wpis do wiki" |
 

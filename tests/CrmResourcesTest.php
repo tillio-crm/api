@@ -12,17 +12,20 @@ use TillioCrm\Api\Dto\NoteInput;
 use TillioCrm\Api\Dto\NoteTemplateInput;
 use TillioCrm\Api\Dto\PipelineItemInput;
 use TillioCrm\Api\Dto\ServiceInput;
+use TillioCrm\Api\Dto\SystemUser;
 use TillioCrm\Api\Dto\TaskComment;
 use TillioCrm\Api\Dto\TaskCommentInput;
 use TillioCrm\Api\Dto\TaskInput;
 use TillioCrm\Api\Dto\TaskTemplateInput;
 use TillioCrm\Api\Dto\TemplateCategory;
+use TillioCrm\Api\Dto\UserActivity;
 use TillioCrm\Api\Dto\TicketInput;
 use TillioCrm\Api\Dto\TicketMessageInput;
 use TillioCrm\Api\Dto\UserInput;
 use TillioCrm\Api\Dto\WriteOptions;
 use TillioCrm\Api\Exception\IncompleteDuplicateCheckException;
 use TillioCrm\Api\Exception\TransportException;
+use TillioCrm\Api\Exception\ValidationException;
 use TillioCrm\Api\Tests\Support\FakeClock;
 use TillioCrm\Api\Tests\Support\MockTransport;
 use TillioCrm\Api\TillioClient;
@@ -51,6 +54,16 @@ final class CrmResourcesTest extends TestCase
             'transport' => $this->transport,
             'clock' => new FakeClock(),
         ]);
+    }
+
+    /** Koperta błędu walidacji z jednym polem - kontrakt `_error.errors`. */
+    private static function validationJson(string $field, string $message): string
+    {
+        return (string) json_encode(['_error' => [
+            'code' => 422,
+            'message' => 'validation.error',
+            'errors' => [['field' => $field, 'code' => 'body.invalidValue', 'message' => $message]],
+        ]]);
     }
 
     public function testNoteCreatedUnderContractor(): void
@@ -125,6 +138,21 @@ final class CrmResourcesTest extends TestCase
         $attachments = $client->tasks()->attachments(7);
         self::assertSame(1, $attachments[0]->commentId);
         self::assertNotNull($attachments[0]->downloadUrl);
+    }
+
+    public function testTaskUpdateSendsExplicitNullToUnpinPipelineItem(): void
+    {
+        // Odpięcie szansy to jawny null w PUT (kontrakt 2.14.1: pipelineItemId nullable).
+        // TaskInput pomija null-e, więc jedyna droga to tablica - klucz z wartością
+        // null musi dojechać w body, a nie zniknąć po drodze.
+        $this->transport->queueJson(200, '{"data":{"id":7,"pipelineItemId":null},"info":{"ids":{"taskId":7}}}');
+
+        $this->client()->tasks()->update(7, ['pipelineItemId' => null]);
+
+        $request = $this->transport->lastRequest();
+        self::assertSame('PUT', $request->method);
+        self::assertSame('v2/tasks/7', $request->path);
+        self::assertSame(['pipelineItemId' => null], $request->body);
     }
 
     public function testLeadProjectPipelineItemAndService(): void
@@ -245,6 +273,215 @@ final class CrmResourcesTest extends TestCase
         self::assertSame(904, $result->id);
     }
 
+    public function testLeadWriteCarriesCategoryRegionAndTags(): void
+    {
+        // Pola zapisu z kontraktu 2.15.0. `leadTagIds: []` to wartość jawna
+        // (PUT zdejmuje wszystkie tagi), więc musi dojechać - pomijamy tylko null.
+        self::assertSame([
+            'title' => 'Acme',
+            'region' => 'mazowieckie',
+            'district' => 'pruszkowski',
+            'categoryId' => 3,
+            'leadTagIds' => [12, 15],
+        ], (new LeadInput(
+            title: 'Acme',
+            region: 'mazowieckie',
+            district: 'pruszkowski',
+            categoryId: 3,
+            leadTagIds: [12, 15],
+        ))->toArray());
+
+        self::assertSame(['leadTagIds' => []], (new LeadInput(leadTagIds: []))->toArray());
+    }
+
+    public function testLeadReadsTagsCategoryAndDistrict(): void
+    {
+        $this->transport->queueJson(200, '{"data":{"id":659,"title":"Acme","categoryId":3,"region":"mazowieckie","district":"pruszkowski","leadTagIds":[12,15]}}');
+
+        $lead = $this->client()->leads()->get(659);
+
+        self::assertSame([12, 15], $lead->leadTagIds);
+        self::assertSame(3, $lead->categoryId);
+        self::assertSame('pruszkowski', $lead->district);
+    }
+
+    public function testLeadUpdateClearsCategoryWithExplicitNull(): void
+    {
+        // Zdjęcie kategorii to jawny null w PUT. LeadInput pomija null-e, więc
+        // jedyna droga to tablica - klucz z wartością null musi dojechać w body.
+        $this->transport->queueJson(200, '{"data":{"id":659,"categoryId":null},"info":{"ids":{"leadId":659}}}');
+
+        $this->client()->leads()->update(659, ['categoryId' => null]);
+
+        $request = $this->transport->lastRequest();
+        self::assertSame('PUT', $request->method);
+        self::assertSame('v2/leads/659', $request->path);
+        self::assertSame(['categoryId' => null], $request->body);
+    }
+
+    public function testLeadChangeStatusPostsReasonAndNote(): void
+    {
+        $this->transport->queueJson(200, '{"data":{"id":659,"leadStatusId":403,"closedAt":"2026-09-18T10:00:00+02:00"},"info":{"ids":{"leadId":659}}}');
+
+        $result = $this->client()->leads()->changeStatus(659, 403, 401, 'Klient wybral oferte konkurencji');
+
+        $request = $this->transport->lastRequest();
+        self::assertSame('POST', $request->method);
+        self::assertSame('v2/leads/659/status', $request->path);
+        self::assertSame([
+            'leadStatusId' => 403,
+            'statusChangeReasonId' => 401,
+            'note' => 'Klient wybral oferte konkurencji',
+        ], $request->body);
+        self::assertSame(659, $result->id);
+        self::assertSame(403, $result->data['leadStatusId'] ?? null);
+    }
+
+    public function testLeadChangeStatusSendsStatusAloneWhenReasonOmitted(): void
+    {
+        // Powód i notatka wolno podać TYLKO przy statusie kończącym - przy zwykłym
+        // przejściu nie mogą wyjść w body, bo API odbija je błędem 422.
+        $this->transport->queueJson(200, '{"data":{"id":659,"leadStatusId":402},"info":{"ids":{"leadId":659}}}');
+
+        $this->client()->leads()->changeStatus(659, 402);
+
+        self::assertSame(['leadStatusId' => 402], $this->transport->lastRequest()->body);
+    }
+
+    public function testLeadChangeStatusSurfacesForeignReasonAsValidationError(): void
+    {
+        $this->transport->queueJson(422, self::validationJson('statusChangeReasonId', 'Powod nie nalezy do tego statusu.'));
+
+        try {
+            $this->client()->leads()->changeStatus(659, 403, 999);
+            self::fail('Oczekiwano ValidationException.');
+        } catch (ValidationException $e) {
+            self::assertSame('body.invalidValue', $e->errorsForField('statusChangeReasonId')[0]->code);
+            self::assertCount(1, $this->transport->requests);
+        }
+    }
+
+    public function testLeadPriorityOutsideEnumIsRejectedByApi(): void
+    {
+        // Od API 2.15.0 priorytet to enum 0/1/2. SDK nie zna skali instancji, więc
+        // wartości nie filtruje - ma czytelnie podać 422 z nazwą pola.
+        $this->transport->queueJson(422, self::validationJson('priority', 'Dozwolone wartosci: 0, 1, 2.'));
+
+        try {
+            $this->client()->leads()->create(new LeadInput(title: 'Acme', priority: 7));
+            self::fail('Oczekiwano ValidationException.');
+        } catch (ValidationException $e) {
+            self::assertSame(['title' => 'Acme', 'priority' => 7], $this->transport->lastRequest()->body);
+            self::assertTrue($e->hasErrorCode('body.invalidValue'));
+        }
+    }
+
+    public function testPipelineItemCarriesContactIdsBothWays(): void
+    {
+        $this->transport
+            ->queueJson(201, '{"data":{"id":6},"info":{"created":true,"ids":{"pipelineItemId":6}}}')
+            ->queueJson(200, '{"data":{"id":6,"contactIds":[]},"info":{"ids":{"pipelineItemId":6}}}');
+
+        $client = $this->client();
+
+        $client->pipelineItems()->create(new PipelineItemInput(
+            name: 'Oferta',
+            pipelineStageId: 5,
+            contractorId: 121,
+            contactIds: [50, 51],
+        ));
+        self::assertSame([
+            'name' => 'Oferta',
+            'pipelineStageId' => 5,
+            'contractorId' => 121,
+            'contactIds' => [50, 51],
+        ], $this->transport->lastRequest()->body);
+
+        // W PUT pusta lista ODPINA wszystkie kontakty - musi dojechać w body.
+        $client->pipelineItems()->update(6, new PipelineItemInput(contactIds: []));
+        self::assertSame(['contactIds' => []], $this->transport->lastRequest()->body);
+    }
+
+    public function testPipelineItemReadsContactIds(): void
+    {
+        $this->transport->queueJson(200, '{"data":{"id":6,"name":"Oferta","contactIds":[50,51]}}');
+
+        self::assertSame([50, 51], $this->client()->pipelineItems()->get(6)->contactIds);
+    }
+
+    public function testPipelineItemContactFromAnotherContractorIsRejected(): void
+    {
+        $this->transport->queueJson(422, self::validationJson('contactIds', 'Kontakt nie nalezy do kontrahenta szansy.'));
+
+        try {
+            $this->client()->pipelineItems()->update(6, new PipelineItemInput(contactIds: [99]));
+            self::fail('Oczekiwano ValidationException.');
+        } catch (ValidationException $e) {
+            self::assertSame('contactIds', $e->errorsForField('contactIds')[0]->field);
+        }
+    }
+
+    public function testPipelineItemChangeStagePostsStageId(): void
+    {
+        $this->transport->queueJson(200, '{"data":{"id":6,"pipelineStageId":5},"info":{"ids":{"pipelineItemId":6},"warnings":{"ownerStageGroupAccess":"Wlasciciel straci dostep w nowym lejku."}}}');
+
+        $result = $this->client()->pipelineItems()->changeStage(6, 5);
+
+        $request = $this->transport->lastRequest();
+        self::assertSame('POST', $request->method);
+        self::assertSame('v2/pipeline/items/6/stage', $request->path);
+        self::assertSame(['pipelineStageId' => 5], $request->body);
+        self::assertArrayHasKey('ownerStageGroupAccess', $result->warnings);
+    }
+
+    public function testPipelineItemChangeStageSurfacesRequiredFieldsMissing(): void
+    {
+        $this->transport->queueJson(422, (string) json_encode(['_error' => [
+            'code' => 422,
+            'message' => 'validation.error',
+            'errors' => [[
+                'field' => 'pipelineStageId',
+                'code' => 'body.requiredFieldsMissing',
+                'message' => 'Etap wymaga pol: amount, customField[budzet].',
+            ]],
+        ]]));
+
+        try {
+            $this->client()->pipelineItems()->changeStage(6, 5);
+            self::fail('Oczekiwano ValidationException.');
+        } catch (ValidationException $e) {
+            self::assertTrue($e->hasErrorCode('body.requiredFieldsMissing'));
+        }
+    }
+
+    public function testPipelineItemChangeStatusPostsReasonAndNote(): void
+    {
+        $this->transport->queueJson(200, '{"data":{"id":6,"pipelineStatusId":2,"realCloseDate":"2026-09-18"},"info":{"ids":{"pipelineItemId":6}}}');
+
+        $result = $this->client()->pipelineItems()->changeStatus(6, 2, 9, 'Wybrano konkurencyjna oferte');
+
+        $request = $this->transport->lastRequest();
+        self::assertSame('POST', $request->method);
+        self::assertSame('v2/pipeline/items/6/status', $request->path);
+        self::assertSame([
+            'pipelineStatusId' => 2,
+            'statusChangeReasonId' => 9,
+            'note' => 'Wybrano konkurencyjna oferte',
+        ], $request->body);
+        self::assertSame(6, $result->id);
+    }
+
+    public function testPipelineItemReopenSendsStatusAlone(): void
+    {
+        // Przy ponownym otwarciu (status 1) powód i notatka to 422 - nie mogą
+        // wyjść w body tylko dlatego, że metoda ma je w sygnaturze.
+        $this->transport->queueJson(200, '{"data":{"id":6,"pipelineStatusId":1},"info":{"ids":{"pipelineItemId":6}}}');
+
+        $this->client()->pipelineItems()->changeStatus(6, 1);
+
+        self::assertSame(['pipelineStatusId' => 1], $this->transport->lastRequest()->body);
+    }
+
     public function testServiceCatalogAndGroups(): void
     {
         $this->transport
@@ -327,6 +564,87 @@ final class CrmResourcesTest extends TestCase
         self::assertSame('v2/users', $this->transport->lastRequest()->path);
         self::assertSame('id', $this->transport->lastRequest()->query['sort'] ?? null);
         self::assertSame('Jan', $users[0]->firstName);
+    }
+
+    public function testUserInputUsesContractNamesFrom216(): void
+    {
+        // Kontrakt 2.16.0 przemianowal pola zapisu: position -> jobTitle,
+        // phone -> contactPhone, i dolozyl contactEmail (inny niz login).
+        self::assertSame([
+            'firstName' => 'Jan',
+            'email' => 'j.kowalski@firma.pl',
+            'jobTitle' => 'Opiekun klienta',
+            'contactPhone' => '+48601234567',
+            'contactEmail' => 'kontakt@firma.pl',
+            'gender' => 'male',
+            'userStatusId' => 1,
+            'roleId' => 2,
+        ], (new UserInput(
+            firstName: 'Jan',
+            email: 'j.kowalski@firma.pl',
+            jobTitle: 'Opiekun klienta',
+            contactPhone: '+48601234567',
+            contactEmail: 'kontakt@firma.pl',
+            gender: 'male',
+            userStatusId: 1,
+            roleId: 2,
+        ))->toArray());
+    }
+
+    public function testSystemUserReadsBusinessContactFields(): void
+    {
+        $this->transport->queueJson(200, '{"data":[{"id":12,"firstName":"Jan","lastName":"Kowalski","email":"j.kowalski@firma.pl","userStatusId":1,"jobTitle":"Opiekun klienta","contactPhone":"+48601234567","contactEmail":"kontakt@firma.pl","gender":"male"}],"pagination":{"page":1,"limit":25,"total":1,"pages":1}}');
+
+        $user = $this->client()->users()->list(['gender' => 'male'])->first();
+        self::assertInstanceOf(SystemUser::class, $user);
+
+        self::assertSame(['gender' => 'male'], $this->transport->lastRequest()->query);
+        // email to LOGIN; contactEmail to osobny adres sluzbowy.
+        self::assertSame('j.kowalski@firma.pl', $user->email);
+        self::assertSame('kontakt@firma.pl', $user->contactEmail);
+        self::assertSame('Opiekun klienta', $user->jobTitle);
+        self::assertSame('+48601234567', $user->contactPhone);
+        self::assertSame('male', $user->gender);
+    }
+
+    public function testUserActivityListSendsFiltersAndMapsRows(): void
+    {
+        $this->transport->queueJson(200, '{"data":[{"userId":5,"lastLoginAt":"2026-09-18T08:14:03+02:00","lastActivityAt":"2026-09-18T13:08:18+02:00","loginCount":128}],"pagination":{"page":1,"limit":25,"total":1,"pages":1}}');
+
+        $row = $this->client()->users()->activity(['sort' => 'lastActivityAt', 'sortDir' => 'asc'])->first();
+        self::assertInstanceOf(UserActivity::class, $row);
+
+        $request = $this->transport->lastRequest();
+        self::assertSame('GET', $request->method);
+        self::assertSame('v2/users/activity', $request->path);
+        self::assertSame(['sort' => 'lastActivityAt', 'sortDir' => 'asc'], $request->query);
+        self::assertSame(5, $row->userId);
+        self::assertSame(128, $row->loginCount);
+        self::assertTrue($row->hasEverLoggedIn());
+    }
+
+    public function testUserActivityIterateForcesSortUserId(): void
+    {
+        // Ta lista nie ma pola `id`, wiec stabilny porzadek daje sort=userId.
+        $this->transport->queueJson(200, '{"data":[{"userId":5,"lastLoginAt":null,"lastActivityAt":null,"loginCount":0}],"pagination":{"page":1,"limit":1000,"total":1,"pages":1}}');
+
+        $rows = iterator_to_array($this->client()->users()->iterateActivity(), false);
+
+        self::assertSame('userId', $this->transport->lastRequest()->query['sort'] ?? null);
+        // Konto, ktore nigdy sie nie logowalo: daty null, licznik 0.
+        self::assertNull($rows[0]->lastLoginAt);
+        self::assertSame(0, $rows[0]->loginCount);
+        self::assertFalse($rows[0]->hasEverLoggedIn());
+    }
+
+    public function testUserActivityGetUsesIdPath(): void
+    {
+        $this->transport->queueJson(200, '{"data":{"userId":5,"lastLoginAt":"2026-09-18T08:14:03+02:00","lastActivityAt":"2026-09-18T13:08:18+02:00","loginCount":128}}');
+
+        $activity = $this->client()->users()->getActivity(5);
+
+        self::assertSame('v2/users/5/activity', $this->transport->lastRequest()->path);
+        self::assertSame('2026-09-18T08:14:03+02:00', $activity->lastLoginAt);
     }
 
     public function testNoteTemplateCreateAndCategories(): void

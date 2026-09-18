@@ -15,12 +15,19 @@ final readonly class NoteInput implements Arrayable
 {
     /**
      * @param int|null                  $noteTypeId     tylko przy tworzeniu
+     * @param string|null               $body           treść HTML; API czyści ją do bezpiecznego podzbioru jak
+     *                                                  edytor CRM (od API 2.15.0) - pusta po wycięciu znaczy pole
+     *                                                  pominięte z ostrzeżeniem w `WriteResult::$warnings`
      * @param list<int>|null            $contactIds     osoby kontaktowe do przypięcia (od API 2.8.0);
      *                                                  przy notatce kontrahenta tylko kontakty tego kontrahenta
      * @param int|null                  $contractorId   kontrahent notatki - używane w `Contacts::createNote()`
      *                                                   (od API 2.10.0); przy notatce kontrahenta id jest w ścieżce
-     * @param int|null                  $serviceId      powiązanie z usługą (notatka pod kontaktem)
-     * @param int|null                  $pipelineItemId powiązanie z szansą sprzedaży (notatka pod kontaktem)
+     * @param int|null                  $serviceId      powiązanie z usługą kontrahenta notatki; usługa INNEGO
+     *                                                  kontrahenta to 422 na `serviceId` (od API 2.15.0;
+     *                                                  wcześniej CRM po cichu zerował powiązanie)
+     * @param int|null                  $pipelineItemId powiązanie z szansą sprzedaży kontrahenta notatki; szansa
+     *                                                  INNEGO kontrahenta to 422 na `pipelineItemId` (od API 2.15.0).
+     *                                                  W ODCZYCIE notatki to samo powiązanie nazywa się `pipelineId`
      * @param array<string, mixed>|null $customField    wartości pól niestandardowych
      * @param string|null               $createdAt      data utworzenia przy imporcie historycznym
      * @param int|null                  $creatorUserId  tylko przy tworzeniu

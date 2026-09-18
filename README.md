@@ -55,7 +55,13 @@ jednorazowe hasła) są zneutralizowane w kodzie, zanim żądanie w ogóle wyjdz
   "otwórz w CRM" (`Note::$url`, `Contact::$url`) i pełne rekordy w lookupie
   po numerze od **2.12.0**, leady bez dubli (`WriteOptions` w `leads()->create()`,
   `leads()->upsert()`), adresy e-mail leada w zapisie, notatka pod leadem
-  i szansa sprzedaży w odczycie zadania od **2.13.0**. Wywołanie
+  i szansa sprzedaży w odczycie zadania od **2.13.0**, zmiana statusu leada
+  (`leads()->changeStatus()`), etapu i statusu szansy
+  (`pipelineItems()->changeStage()`, `changeStatus()`), lookup po adresie e-mail
+  (`lookup()->email()`), kategorie i tagi leadów, kontakty przy szansie od
+  **2.15.0**, służbowe dane kontaktowe użytkownika (`jobTitle`, `contactPhone`,
+  `contactEmail`, `gender`) i jego aktywność (`users()->activity()`) od
+  **2.16.0**. Wywołanie
   funkcji, której CRM instalacji jeszcze nie ma, kończy się `FeatureNotSupportedException`
   (501); trasy spoza wersji API - błędem 404.
 
@@ -152,7 +158,7 @@ Każdy zasób to jawna metoda fasady (IDE i analiza statyczna widzą typy):
 | `calendars()` | kalendarze + wydarzenia (API >= 2.2.0) | [docs/examples/calendars.md](docs/examples/calendars.md) |
 | `phoneCalls()` | połączenia telefoniczne (API >= 2.10.0) | [docs/.ai/phone-calls/](docs/.ai/phone-calls/README.md) |
 | `textMessages()` | wiadomości SMS (API >= 2.10.0) | [docs/.ai/text-messages/](docs/.ai/text-messages/README.md) |
-| `lookup()` | kto dzwoni: szukanie po numerze (API >= 2.10.0) | [docs/.ai/lookup/](docs/.ai/lookup/README.md) |
+| `lookup()` | kto dzwoni i kto pisze: szukanie po numerze (API >= 2.10.0) i po adresie e-mail (API >= 2.15.0) | [docs/.ai/lookup/](docs/.ai/lookup/README.md) |
 | `integrations()` | konfiguracja Tillio Calls (API >= 2.11.0) | [docs/.ai/integrations/](docs/.ai/integrations/README.md) |
 
 Systemowe na fasadzie: `health()`, `whoami()`, `selfcheck()`, `openapi()`,
@@ -398,7 +404,7 @@ vendor/bin/phpunit
 vendor/bin/phpstan analyse --memory-limit=1G
 ```
 
-Zestaw zawiera test kontraktowy (`RouteCoverageTest` - każda z 232 tras mapy
+Zestaw zawiera test kontraktowy (`RouteCoverageTest` - każda z 242 tras mapy
 wskazuje istniejącą metodę SDK; pełne porównanie 1:1 ze specyfikacją instancji
 włączysz, pobierając `GET /v2/openapi.json` i ustawiając `TILLIO_OPENAPI_FILE`)
 oraz test przenośności (zero zależności spoza `TillioCrm\Api` w `src/`).

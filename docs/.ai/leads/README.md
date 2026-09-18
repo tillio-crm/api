@@ -17,7 +17,7 @@ Lead zapisuje się przez `LeadInput` (named arguments, `null` = nie wysyłaj pol
 | `title` | string | tytuł leada - JEDYNE pole wymagane przy tworzeniu; krótki opis zapytania, np. "Zapytanie ze strony - Acme" |
 | `note` | string | treść notatki/opisu leada |
 | `ownerUserId` | int | opiekun leada; z `resolveUserId($client, imie, nazwisko)` - nie wpisuj id z głowy |
-| `priority` | int | priorytet; kontrakt nie definiuje skali dla tej instancji - jeśli nie znasz mapowania, pomiń albo dopytaj, nie zgaduj liczby |
+| `priority` | int | priorytet: `0` = standard, `1` = wysoki, `2` = najwyższy (domyślnie 0). Inna liczba to 422 - nie zgaduj skali (API >= 2.15.0) |
 | `companyName` | string | nazwa firmy leada (dane wolne, bez kartoteki kontrahenta) |
 | `taxId` | string | NIP firmy leada |
 | `regon` | string | REGON firmy leada |
@@ -32,9 +32,13 @@ Lead zapisuje się przez `LeadInput` (named arguments, `null` = nie wysyłaj pol
 | `street2` | string | druga linia adresu |
 | `postCode` | string | kod pocztowy |
 | `city` | string | miejscowość |
+| `region` | string | województwo/region (w zapisie od API 2.15.0) |
+| `district` | string | powiat/dzielnica (w zapisie od API 2.15.0) |
 | `country` | string | kraj |
-| `leadStatusId` | int | PROCES leadowy (nie konkretny etap); z `dictionaries()->leadProcesses()`, dopasuj po nazwie i weź `->id` procesu. Ustawiane TYLKO przy tworzeniu |
-| `contractorSourceId` | int | źródło pozyskania leada; z odpowiedniego słownika `dictionaries()`. Ustawiane TYLKO przy tworzeniu |
+| `leadStatusId` | int | PROCES leadowy (nie konkretny etap); z `dictionaries()->leadProcesses()`, dopasuj po nazwie i weź `->id` procesu. Ustawiane TYLKO przy tworzeniu - status istniejącego leada zmienia `changeStatus()` |
+| `categoryId` | int | kategoria leada z `dictionaries()->leadCategories()` (w zapisie od API 2.15.0); zdjęcie kategorii wymaga jawnego nulla, czyli tablicy: `update($id, ['categoryId' => null])` |
+| `contractorSourceId` | int | źródło pozyskania leada; z `dictionaries()->contractorSources()`. Od API 2.15.0 edytowalne także w `update()` |
+| `leadTagIds` | list<int> | tagi leada z `dictionaries()->leadTags()` (API >= 2.15.0, najwyżej 50). W `create()` tagi są DOKŁADANE do trafionego leada; w `update()` to KOMPLETNA lista docelowa (`[]` zdejmuje wszystkie) |
 | `customField` | array<string,mixed> | wartości pól niestandardowych, mapa `klucz => wartosc`; klucze z `customFields()` |
 | `createdAt` | string | data utworzenia przy imporcie historycznym (ISO 8601); pomiń dla bieżących leadów |
 | `creatorUserId` | int | autor przy imporcie historycznym; z `resolveUserId()`. Ustawiane TYLKO przy tworzeniu |
@@ -54,12 +58,11 @@ Odczyt (`Lead`, `src/Dto/Lead.php`) niesie pola, których `LeadInput` NIE przyjm
 | pole odczytu | typ | znaczenie |
 |---|---|---|
 | `leadStageId` | ?int | konkretny ETAP (status) w ramach procesu leadowego; wynik pracy z leadem, nie parametr zapisu |
-| `statusChangeReasonId` | ?int | powód ostatniej zmiany statusu |
-| `categoryId` | ?int | kategoria leada |
+| `statusChangeReasonId` | ?int | powód ostatniej zmiany statusu (słownik `dictionaries()->leadStatusChangeReasons()`) |
 | `contractorId` | ?int | kartoteka kontrahenta, jeśli lead został z nią powiązany |
 | `contactId` | ?int | osoba kontaktowa (kartoteka), jeśli powiązano |
 | `salesPipelineId` | ?int | id szansy sprzedaży utworzonej z leada (patrz playbook pipeline-items) |
-| `region`, `district` | ?string | region i powiat (uzupełniane przez CRM) |
+| `leadTagIds` | list<int> | tagi leada, priorytet malejąco (to samo pole przyjmuje zapis) |
 | `closedAt`, `lastActivityAt`, `updatedAt` | ?string | znaczniki czasu z cyklu życia leada |
 
 ## Model danych w skrócie
@@ -74,8 +77,10 @@ i/lub osoby kontaktowej oraz opiekunem, ale API nie wymusza żadnego z tych pól
 
 Metody zasobu: `create(LeadInput, WriteOptions)`, `update(int $id, LeadInput)`,
 `get(int $id)`, `list(array $filters)`, `iterate(array $filters)`,
-`upsert(array $items, WriteOptions)` (paczka do 100 leadów) oraz
-`createNote(int $leadId, NoteInput)` (notatka pod leadem).
+`upsert(array $items, WriteOptions)` (paczka do 100 leadów),
+`changeStatus(int $id, int $leadStatusId, ?int $statusChangeReasonId, ?string $note)`
+(zmiana statusu, API >= 2.15.0) oraz `createNote(int $leadId, NoteInput)`
+(notatka pod leadem).
 
 **Create-or-attach (API >= 2.13.0).** `create()` NIE zakłada dubla: API najpierw
 szuka istniejącego leada (domyślnie po e-mailu i telefonie z żądania). Gdy
@@ -85,8 +90,9 @@ znajdzie, zwraca HTTP 200 z TYM leadem i podpina do niego dane z żądania:
 - adresy z `emails` dokłada (adres główny bez zmian),
 - telefon wpisuje w wolny numer (główny, potem alternatywny; oba zajęte = ostrzeżenie),
 - `customField` NADPISUJE (klucze integracji mają być aktualne),
-- `leadStatusId`, `contractorSourceId`, `createdAt` i `creatorUserId` pomija
-  z ostrzeżeniem w `->warnings` - lead nie powstaje, więc nie ma czego ustawiać.
+- tagi z `leadTagIds` DOKŁADA (istniejące zostają - API >= 2.15.0),
+- `leadStatusId`, `createdAt` i `creatorUserId` pomija z ostrzeżeniem
+  w `->warnings` - lead nie powstaje, więc nie ma czego ustawiać.
 
 `WriteResult` mówi, co się stało: `->created` (`true` = nowy lead, `false` =
 podpięto do istniejącego), `->isDuplicate()`, `->matchedBy()` (po czym znaleziono)
@@ -112,6 +118,10 @@ po czym szukać). Na instancji starszej niż 2.13.0 wyszukiwania nie ma: każdy
 | "z adresem w Warszawie" | `city`, `street`, `postCode` | wprost z polecenia |
 | "nawet jeśli już jest, załóż nowy" | `new WriteOptions(allowDuplicates: true)` | tylko na wyraźne życzenie - domyślnie dubla nie zakładaj |
 | "dopisz notatkę do leada" | `createNote($leadId, NoteInput)` | typ z `dictionaries()->noteTypes()` |
+| "kategoria: kampania wiosenna" | `categoryId` | `findByName($client->dictionaries()->leadCategories(), 'Kampania wiosenna')` |
+| "otaguj jako VIP" | `leadTagIds` | `findByName($client->dictionaries()->leadTags(), 'VIP')`; w `update()` podaj KOMPLET tagów |
+| "zakwalifikuj leada" / "odrzuć, bo brak budżetu" | `changeStatus($id, $leadStatusId, $reasonId, $note)` | status z `leadProcesses()`, powód z `leadStatusChangeReasons($leadStatusId)` |
+| "priorytet wysoki" | `priority: 1` | skala jest stała: 0 standard, 1 wysoki, 2 najwyższy |
 
 ## Scenariusz flagowy: lead z zapytania ze strony
 
@@ -255,6 +265,69 @@ kontrahenta) - przy konwersji leada CRM sam przepina jego notatki. `contactIds`,
 `serviceId` i `pipelineItemId` nie są tu obsługiwane (422). Odczyt:
 `notes()->list(['leadId' => $leadId])`.
 
+### Zmiana statusu leada: kwalifikacja i dyskwalifikacja (API >= 2.15.0)
+
+Statusu NIE zmienia się przez `update()` - PUT odbija `leadStatusId` błędem 422
+`body.fieldNotUpdatable`. W CRM to proces z historią, więc ma własną metodę:
+CRM dopisuje wpis do historii, ustawia `closedAt` i grupę statusów.
+
+```php
+// Krok 1: status docelowy z procesu leadowego. Powód i notatkę przyjmują
+// WYŁĄCZNIE statusy kończące - type `qualified` albo `disqualified`.
+$target = null;
+foreach ($client->dictionaries()->leadProcesses() as $process) {
+    foreach ($process->statuses as $status) {
+        if (mb_strtolower((string) $status->name) === mb_strtolower('Zdyskwalifikowany')) {
+            $target = $status;
+            break 2;
+        }
+    }
+}
+if ($target === null) {
+    throw new RuntimeException('Nie znaleziono statusu - dopytaj uzytkownika, ktory wybrac.');
+}
+
+// Krok 2: powód zmiany ze słownika TEGO statusu. noteRequired mówi, czy
+// notatka jest obowiązkowa - bez niej API odrzuci zapis błędem 422.
+$reason = null;
+foreach ($client->dictionaries()->leadStatusChangeReasons($target->id) as $candidate) {
+    if ($candidate->active === true && mb_strtolower((string) $candidate->name) === mb_strtolower('Brak budzetu')) {
+        $reason = $candidate;
+        break;
+    }
+}
+
+$note = $reason?->noteRequired === true ? 'Klient odlozyl decyzje na przyszly rok.' : null;
+
+// Krok 3: zmiana. Przy statusie NIEKOŃCZĄCYM (type `default`) powód i notatka
+// to 422 - wtedy wywołaj changeStatus($id, $target->id) bez nich.
+$result = $client->leads()->changeStatus(42, $target->id, $reason?->id, $note);
+
+// data to lead PO zmianie - dokładnie jak z leads()->get().
+$lead = TillioCrm\Api\Dto\Lead::fromArray($result->data);
+echo "Lead #{$lead->id} ma status {$lead->leadStatusId} (zamkniety: {$lead->closedAt}).\n";
+```
+
+### Kategoria i tagi leada (API >= 2.15.0)
+
+```php
+use TillioCrm\Api\Dto\LeadInput;
+
+// Tagi w create() są DOKŁADANE do trafionego leada, w update() ZASTĘPUJĄ listę.
+// Chcesz dopisać tag do istniejącego leada - przekaż komplet, tak jak przy emails.
+$lead = $client->leads()->get(42);
+$client->leads()->update(42, new LeadInput(
+    leadTagIds: [...$lead->leadTagIds, $vipTagId],
+    categoryId: $categoryId,
+));
+
+// Pusta lista zdejmuje wszystkie tagi.
+$client->leads()->update(42, new LeadInput(leadTagIds: []));
+
+// Zdjęcie kategorii wymaga jawnego nulla - LeadInput pomija null-e, więc tablica.
+$client->leads()->update(42, ['categoryId' => null]);
+```
+
 ### Adresy e-mail: dopisanie a wymiana
 
 ```php
@@ -287,11 +360,14 @@ foreach ($page as $lead) {
 
 Dostępne filtry (komplet wg kontraktu): `leadStatusId`, `leadStageId`,
 `ownerUserId`, `title`, `taxId`, `id`, `statusChangeReasonId`, `categoryId`,
-`contractorSourceId`, `priority`, `creatorUserId`, `contractorId`, `contactId`,
+`leadTagId` (jeden tag na żądanie), `contractorSourceId`, `priority`,
+`creatorUserId`, `contractorId`, `contactId`,
 `salesPipelineId`, `companyName`, `regon`, `domain`, `firstName`, `lastName`,
 `position`, `phone`, `phoneAlternative`, `street`, `postCode`, `city`, `region`,
-`country`, `updatedAfter`/`updatedBefore`, `createdAfter`/`createdBefore`,
-`customField[klucz]`, `sort`/`sortDir`, `page`/`limit`. Do pełnego przebiegu
+`district`, `country`, `updatedAfter`/`updatedBefore`,
+`createdAfter`/`createdBefore`,
+`customField[klucz]`, `sort`/`sortDir`, `page`/`limit` (`leadTagId` i `district`
+wymagają API >= 2.15.0). Do pełnego przebiegu
 wszystkich stron użyj `iterate()` (wymusza `sort=id`, nie gubi rekordów - patrz
 [queries](../queries/README.md)).
 
@@ -326,9 +402,11 @@ foreach ($client->dictionaries()->leadProcesses() as $process) {
   albo telefonem już istnieje → HTTP 200, `->created === false`, dane podpięte do
   istniejącego. Nie mów "utworzono", gdy `created` jest `false`, i nie szukaj
   leada ręcznie przed zapisem - API robi to samo, w jednym żądaniu.
-- **Przy podpięciu proces i źródło NIE wchodzą.** `leadStatusId`,
-  `contractorSourceId`, `createdAt` i `creatorUserId` działają tylko przy
-  tworzeniu - przy trafieniu w istniejącego leada lądują w `->warnings`.
+- **Przy podpięciu proces NIE wchodzi.** `leadStatusId`, `createdAt`
+  i `creatorUserId` działają tylko przy tworzeniu - przy trafieniu w istniejącego
+  leada lądują w `->warnings`. `contractorSourceId` (od API 2.15.0 edytowalny też
+  w `update()`) podlega regule "uzupełnia puste", a istniejący lead źródło ma
+  zawsze, więc i tak zostaje bez zmian.
 - **Skonwertowany lead to już klient.** `$result->duplicate?->raw['contractorId']`
   niepuste = lead został kontrahentem. Nie zakładaj nowego leada na siłę
   (`allowDuplicates`) - zapytaj użytkownika, co zrobić.
@@ -346,11 +424,24 @@ foreach ($client->dictionaries()->leadProcesses() as $process) {
   ma pola `leadStageId`.
 - **Nie zgaduj `ownerUserId`.** Kilka osób może mieć to samo nazwisko -
   `resolveUserId()` celowo rzuca przy wielu trafieniach. Dopytaj o e-mail.
-- **`priority` bez zdefiniowanej skali.** Kontrakt nie mówi, co znaczy dana
-  liczba w tej instancji - nie wpisuj wartości "na oko", pomiń albo dopytaj.
+- **`priority` to enum `0|1|2`** (0 standard, 1 wysoki, 2 najwyższy; API >= 2.15.0).
+  Inna liczba to 422 `body.invalidValue` przed zapisem. Ta sama skala obowiązuje
+  w zgłoszeniach i zadaniach.
+- **Statusu nie zmienia `update()`.** `leadStatusId` w PUT to 422
+  `body.fieldNotUpdatable` - od zmiany jest `changeStatus()`. Powód i notatkę
+  przyjmują wyłącznie statusy kończące; przy statusie `default` oba dają 422.
+- **Tagi: `create()` dokłada, `update()` wymienia.** Jak przy `emails` - żeby
+  dopisać tag istniejącemu leadowi, przekaż KOMPLET, inaczej pozostałe znikną.
+- **Zdjęcie kategorii przez tablicę.** `new LeadInput(categoryId: null)` nie
+  wyśle pola (null = "nie wysyłaj"); zdejmuje ją dopiero
+  `update($id, ['categoryId' => null])`.
+- **Numer telefonu musi być prawdziwy.** Od API 2.15.0 numer niepoprawny wg
+  libphonenumber (za krótki, za długi, z doklejonym numerem wewnętrznym) NIE
+  zapisuje się - wraca w `->warnings.phone`, a lead powstaje bez telefonu.
+  Dotyczy też wyszukiwania duplikatu po `phone`.
 - **Odczyt vs zapis.** `Lead` (odczyt) ma pola nieobecne w `LeadInput`
-  (`leadStageId`, `contractorId`, `contactId`, `salesPipelineId`, `region`,
-  `district`, znaczniki czasu) - ustawia je CRM.
+  (`leadStageId`, `statusChangeReasonId`, `contractorId`, `contactId`,
+  `salesPipelineId`, znaczniki czasu) - ustawia je CRM.
 - **`create()` zwraca `WriteResult`** (`->id`, `->created`, `->warnings`,
   `isDuplicate()`), nie samo id; `upsert()` zwraca `UpsertResult`. Szczegóły:
   sekcja "Co zwracają zapisy" w [ai_integration.md](../ai_integration.md).

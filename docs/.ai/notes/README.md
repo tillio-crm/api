@@ -15,8 +15,9 @@ Uwaga strukturalna: `contractorId` jest w ŚCIEŻCE (argument metody), a NIE w
 - `noteTypeId` (int) - typ notatki ze słownika `dictionaries()->noteTypes()`,
 - `title` (string) - tytuł notatki.
 
-Reszta jest opcjonalna: `body`, `pinned`, `noteDate`, `contactIds`, `customField`,
-`createdAt`, `creatorUserId`. Pełna lista pól: `src/Dto/NoteInput.php`.
+Reszta jest opcjonalna: `body`, `pinned`, `noteDate`, `contactIds`, `serviceId`,
+`pipelineItemId`, `customField`, `createdAt`, `creatorUserId`. Pełna lista pól:
+`src/Dto/NoteInput.php`.
 
 Ten sam `NoteInput` przyjmują pozostałe kotwice notatki: pod osobą kontaktową
 `contacts()->createNote($contactId, ...)` (API >= 2.10.0, playbook
@@ -28,6 +29,12 @@ Pole `contactIds` (`list<int>`, API >= 2.8.0) przypina osoby kontaktowe od razu
 przy tworzeniu notatki. Przy notatce kontrahenta wolno wskazać wyłącznie kontakty
 tego kontrahenta - obce id zwróci błąd. Kontakty można też dopiąć osobno po
 utworzeniu notatki (patrz "Kontakty przy notatce" w Wariantach).
+
+Analogicznie `serviceId` i `pipelineItemId` przypinają notatkę do usługi albo
+szansy sprzedaży TEGO SAMEGO kontrahenta. Od API 2.15.0 obca usługa lub szansa
+to 422 na tym polu - wcześniej CRM po cichu zerował powiązanie i notatka
+powstawała "goła". Uwaga na nazwy: w zapisie jest `pipelineItemId`, a w odczycie
+to samo powiązanie nazywa się `pipelineId` (`Note::$pipelineId`).
 
 Kluczowa konsekwencja dla Ciebie: użytkownik NIGDY nie poda `contractorId` ani
 `noteTypeId` wprost - poda nazwę firmy ("Acme") i nazwę typu ("Rozmowa
@@ -55,6 +62,7 @@ sklejać adres samodzielnie.
 | "z datą wczorajszą" / "z dnia ..." | `noteDate` (ISO 8601) | policz datę, sformatuj `DATE_ATOM` |
 | "z załącznikiem plik.pdf" | osobne `addAttachment(noteId, ...)` | najpierw `create()`, potem upload (patrz Warianty) |
 | "przypnij kontakt Jan Kowalski" | `contactIds: [id]` albo `addContact(noteId, id)` | `contacts()->list([...])`, dopasuj osobę (API >= 2.8.0) |
+| "podepnij pod szansę / pod usługę" | `pipelineItemId` / `serviceId` | `pipelineItems()->list(['contractorId' => ...])`, `services()->list(['contractorId' => ...])` - musi być ten sam kontrahent |
 
 Rozwiązywanie `contractorId` z nazwy albo NIP-u ma własne pułapki (duplikaty,
 brak kartoteki) - szczegóły w playbooku kontrahentów. Tu używamy go w
@@ -246,6 +254,15 @@ $client->notes()->removeContact($result->id, $jan->id);   // void
   `FeatureNotSupportedException` (501) - nie ponawiaj, zaktualizuj CRM. Przy
   notatce kontrahenta wolno wskazać tylko kontakty tego kontrahenta - obce id to
   błąd, nie ciche pominięcie.
-- **Odczyt vs zapis**: `Note` (odczyt) ma pola `leadId`, `serviceId`,
-  `pipelineId`, których `NoteInput` nie przyjmuje - `leadId` ustawia trasa
-  `leads()->createNote()` (API >= 2.13.0), a nie pole w input.
+- **Odczyt vs zapis**: `Note` (odczyt) ma pole `leadId`, którego `NoteInput` nie
+  przyjmuje - ustawia je trasa `leads()->createNote()` (API >= 2.13.0), a nie pole
+  w input. `serviceId` i `pipelineItemId` w zapisie wracają w odczycie jako
+  `serviceId` i `pipelineId` (inna nazwa, to samo powiązanie).
+- **Powiązanie z usługą i szansą musi być tego samego kontrahenta.** Od API 2.15.0
+  obce id to 422 na `serviceId`/`pipelineItemId`. Wcześniej notatka powstawała bez
+  powiązania i bez błędu - jeśli integracja liczyła na to zachowanie, teraz
+  dostanie wyjątek.
+- **`body` to HTML czyszczony po stronie API** (od 2.15.0): bez skryptów, iframe,
+  zdarzeń i osadzonych obrazków, linki dostają `target=_blank`. Treść pusta po
+  wycięciu znaczy pole POMINIĘTE z ostrzeżeniem w `->warnings` - notatka powstanie
+  bez treści, więc sprawdzaj ostrzeżenia przy przenoszeniu treści z innego systemu.

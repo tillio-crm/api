@@ -304,6 +304,11 @@ final class TillioClient
      * Sekcja `acl` (od API 2.14.0) jest informacyjna: `missingKeys` wskazuje klucze
      * uprawnień bramek 403 nieznane tej instancji i nie zmienia `status`.
      *
+     * W `core` od API 2.14.1: `callbacksChecked` i `mismatchedCallbacks` - pola
+     * modeli CRM, których zapis wskazuje inną metodę niż ta, na której polega API
+     * (zapis przeszedłby bez błędu i bez danych, np. lead bez adresów e-mail).
+     * Niepusta lista to `status: failed` i HTTP 500 - SDK oddaje raport, nie rzuca.
+     *
      * @return array<string, mixed> raport `{status, version, durationMs, core, database, acl}`
      */
     public function selfcheck(): array

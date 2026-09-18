@@ -12,9 +12,15 @@ namespace TillioCrm\Api\Dto;
 final readonly class PipelineItemInput implements Arrayable
 {
     /**
-     * @param int|null                  $pipelineStageId  tylko przy tworzeniu (dalej: proces lejka)
+     * @param int|null                  $pipelineStageId  tylko przy tworzeniu; etap istniejącej szansy
+     *                                                    przesuwa `pipelineItems()->changeStage()`
      * @param int|null                  $contractorId     tylko przy tworzeniu
-     * @param int|null                  $pipelineStatusId tylko przy tworzeniu
+     * @param int|null                  $pipelineStatusId tylko przy tworzeniu; status istniejącej szansy
+     *                                                    zmienia `pipelineItems()->changeStatus()`
+     * @param list<int>|null            $contactIds       kontakty kontrahenta szansy do przypięcia
+     *                                                    (od API 2.15.0, najwyżej 50; kontakt spoza tego
+     *                                                    kontrahenta to 422). W `update()` KOMPLETNA lista
+     *                                                    docelowa - `[]` odpina wszystkie
      * @param array<string, mixed>|null $customField      wartości pól niestandardowych
      * @param string|null               $createdAt        data utworzenia przy imporcie historycznym
      * @param int|null                  $creatorUserId    tylko przy tworzeniu
@@ -30,6 +36,7 @@ final readonly class PipelineItemInput implements Arrayable
         public ?int $probability = null,
         public ?int $ownerUserId = null,
         public ?int $pipelineStatusId = null,
+        public ?array $contactIds = null,
         public ?array $customField = null,
         public ?string $createdAt = null,
         public ?int $creatorUserId = null,
@@ -49,6 +56,7 @@ final readonly class PipelineItemInput implements Arrayable
             'probability' => $this->probability,
             'ownerUserId' => $this->ownerUserId,
             'pipelineStatusId' => $this->pipelineStatusId,
+            'contactIds' => $this->contactIds,
             'customField' => $this->customField,
             'createdAt' => $this->createdAt,
             'creatorUserId' => $this->creatorUserId,

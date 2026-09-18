@@ -11,6 +11,10 @@ namespace TillioCrm\Api\Dto;
 final readonly class TicketProcessInput implements Arrayable
 {
     /**
+     * @param array<string, mixed>|null                        $acl    ograniczenie widoczności
+     *                                                                 `{userIds?, departmentIds?, groupIds?}`
+     *                                                                 (format obiektowy od API 1.28.0);
+     *                                                                 puste = bez ograniczeń
      * @param list<ProcessStageInput|array<string, mixed>>|null $stages etapy zakładane razem z procesem
      */
     public function __construct(
@@ -20,6 +24,8 @@ final readonly class TicketProcessInput implements Arrayable
         public ?bool $autoTicket = null,
         public ?int $order = null,
         public ?bool $active = null,
+        public ?bool $pinProtected = null,
+        public ?array $acl = null,
         public ?array $stages = null,
     ) {
     }
@@ -41,6 +47,8 @@ final readonly class TicketProcessInput implements Arrayable
             'autoTicket' => $this->autoTicket,
             'order' => $this->order,
             'active' => $this->active,
+            'pinProtected' => $this->pinProtected,
+            'acl' => $this->acl,
             'stages' => $stages,
         ]);
     }

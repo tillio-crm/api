@@ -14,12 +14,27 @@ namespace TillioCrm\Api\Dto;
  */
 final readonly class UserInput implements Arrayable
 {
+    /**
+     * @param string|null                            $email        LOGIN systemowy, unikalny w instancji
+     * @param string|null                            $jobTitle     stanowisko; od API 2.16.0 pod tą nazwą
+     *                                                             (do 2.15.x `position`)
+     * @param string|null                            $contactPhone służbowy telefon do kontaktu; od API
+     *                                                             2.16.0 pod tą nazwą (do 2.15.x `phone`).
+     *                                                             Numer niepoprawny wg libphonenumber nie
+     *                                                             blokuje założenia konta - wraca
+     *                                                             w `CreatedUser::$warnings`
+     * @param string|null                            $contactEmail służbowy adres e-mail do kontaktu, inny
+     *                                                             niż login (od API 2.16.0); adres
+     *                                                             niepoprawny wraca w ostrzeżeniach
+     * @param 'male'|'female'|'unspecified'|null     $gender       brak = `unspecified`
+     */
     public function __construct(
         public ?string $firstName = null,
         public ?string $lastName = null,
         public ?string $email = null,
-        public ?string $position = null,
-        public ?string $phone = null,
+        public ?string $jobTitle = null,
+        public ?string $contactPhone = null,
+        public ?string $contactEmail = null,
         public ?string $gender = null,
         public ?int $userStatusId = null,
         public ?int $departmentId = null,
@@ -33,8 +48,9 @@ final readonly class UserInput implements Arrayable
             'firstName' => $this->firstName,
             'lastName' => $this->lastName,
             'email' => $this->email,
-            'position' => $this->position,
-            'phone' => $this->phone,
+            'jobTitle' => $this->jobTitle,
+            'contactPhone' => $this->contactPhone,
+            'contactEmail' => $this->contactEmail,
             'gender' => $this->gender,
             'userStatusId' => $this->userStatusId,
             'departmentId' => $this->departmentId,

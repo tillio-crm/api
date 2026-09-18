@@ -59,7 +59,7 @@ if (!$result->created) {
 }
 
 // Aktualizacja - tylko podane pola; JAWNY null (czyszczenie) przez tablicę:
-$client->contractors()->update(12345, new ContractorInput(phone: '+48000000000'));
+$client->contractors()->update(12345, new ContractorInput(phone: '+48221234567'));
 $client->contractors()->update(12345, ['externalId' => null]);   // odpięcie klucza integracji
 
 // Upsert paczką - HTTP zawsze 200, wynik per item:

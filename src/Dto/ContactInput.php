@@ -13,6 +13,12 @@ namespace TillioCrm\Api\Dto;
 final readonly class ContactInput implements Arrayable
 {
     /**
+     * @param int|null                  $contractorId  dopina kontakt do kartoteki i ustawia ją jako GŁÓWNĄ;
+     *                                                 dotychczasowe powiązania zostają, schodzą niżej
+     * @param list<int>|null            $contractorIds ZASTĘPUJE całą listę kartotek kontaktu (pierwsza = główna,
+     *                                                 od API 2.10.0). Kartoteka usunięta z listy traci powiązanie
+     *                                                 kontaktu ze swoimi szansami i zgłoszeniami; pusta lista = 422
+     *                                                 (API nie odpina kontaktu od wszystkich kontrahentów)
      * @param array<string, mixed>|null $customField   wartości pól niestandardowych
      * @param string|null               $createdAt     data utworzenia przy imporcie historycznym
      * @param int|null                  $creatorUserId tylko przy tworzeniu (import historii)
@@ -29,6 +35,7 @@ final readonly class ContactInput implements Arrayable
         public ?int $ownerUserId = null,
         public ?string $externalId = null,
         public ?int $contractorId = null,
+        public ?array $contractorIds = null,
         public ?array $customField = null,
         public ?string $createdAt = null,
         public ?int $creatorUserId = null,
@@ -49,6 +56,7 @@ final readonly class ContactInput implements Arrayable
             'ownerUserId' => $this->ownerUserId,
             'externalId' => $this->externalId,
             'contractorId' => $this->contractorId,
+            'contractorIds' => $this->contractorIds,
             'customField' => $this->customField,
             'createdAt' => $this->createdAt,
             'creatorUserId' => $this->creatorUserId,

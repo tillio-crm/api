@@ -116,6 +116,57 @@ final class MiscResourcesTest extends TestCase
         self::assertSame(['PLN', 'EUR'], $client->dictionaries()->currencies());
     }
 
+    public function testLeadDictionariesAndStatusChangeReasons(): void
+    {
+        $this->transport
+            ->queueJson(200, '{"data":[{"id":3,"name":"Kampania wiosenna","color":"#4caf50"}]}')
+            ->queueJson(200, '{"data":[{"id":12,"name":"VIP","color":"#e57373"}]}')
+            ->queueJson(200, '{"data":[{"id":401,"name":"Brak budzetu","leadStatusId":403,"active":true,"noteRequired":true}]}')
+            ->queueJson(200, '{"data":[{"id":9,"name":"Konkurencja","pipelineStatusId":2,"pipelineFunnelId":null,"active":true,"noteRequired":false,"isDefault":true}]}');
+
+        $client = $this->client();
+
+        $categories = $client->dictionaries()->leadCategories();
+        self::assertSame('v2/lead/categories', $this->transport->lastRequest()->path);
+        self::assertSame('Kampania wiosenna', $categories[0]->name);
+
+        $tags = $client->dictionaries()->leadTags();
+        self::assertSame('v2/lead/tags', $this->transport->lastRequest()->path);
+        self::assertSame(12, $tags[0]->id);
+
+        $leadReasons = $client->dictionaries()->leadStatusChangeReasons(403);
+        $request = $this->transport->lastRequest();
+        self::assertSame('v2/lead/status-change-reasons', $request->path);
+        self::assertSame(['leadStatusId' => '403'], $request->query);
+        self::assertSame(403, $leadReasons[0]->leadStatusId);
+        self::assertTrue($leadReasons[0]->noteRequired);
+
+        // Filtr lejka oddaje powody tego lejka RAZEM ze wspolnymi
+        // (pipelineFunnelId === null, isDefault).
+        $pipelineReasons = $client->dictionaries()->pipelineStatusChangeReasons(2, 1);
+        $request = $this->transport->lastRequest();
+        self::assertSame('v2/pipeline/status-change-reasons', $request->path);
+        self::assertSame(['pipelineStatusId' => '2', 'pipelineFunnelId' => '1'], $request->query);
+        self::assertSame(2, $pipelineReasons[0]->pipelineStatusId);
+        self::assertNull($pipelineReasons[0]->pipelineFunnelId);
+        self::assertTrue($pipelineReasons[0]->isDefault);
+    }
+
+    public function testStatusChangeReasonsWithoutFilterSendNoQuery(): void
+    {
+        $this->transport
+            ->queueJson(200, '{"data":[]}')
+            ->queueJson(200, '{"data":[]}');
+
+        $client = $this->client();
+
+        $client->dictionaries()->leadStatusChangeReasons();
+        self::assertSame([], $this->transport->lastRequest()->query);
+
+        $client->dictionaries()->pipelineStatusChangeReasons();
+        self::assertSame([], $this->transport->lastRequest()->query);
+    }
+
     public function testCustomFieldsListCreateUpdate(): void
     {
         $this->transport

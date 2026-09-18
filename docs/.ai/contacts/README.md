@@ -27,7 +27,8 @@ prawdy: `src/Dto/ContactInput.php`, `src/Dto/WriteOptions.php`. Poniżej KAŻDE 
 | `contactStatusId` | int | status osoby; z odpowiedniego słownika `dictionaries()`, dopasuj nazwę |
 | `ownerUserId` | int | opiekun osoby; z `resolveUserId($client, imie, nazwisko)` |
 | `externalId` | string | identyfikator z systemu zewnętrznego (import/integracja) |
-| `contractorId` | int | kartoteka kontrahenta, do której osoba należy; z `contractors()->list(['name' => ...])` |
+| `contractorId` | int | kartoteka kontrahenta, do której osoba należy; z `contractors()->list(['name' => ...])`. DOPINA kartotekę jako GŁÓWNĄ, dotychczasowe zostają |
+| `contractorIds` | list<int> | ZASTĘPUJE całą listę kartotek osoby, pierwsza = główna (API >= 2.10.0). Kartoteka wyrzucona z listy traci powiązanie osoby ze swoimi szansami i zgłoszeniami; pusta lista to 422 |
 | `customField` | array<string,mixed> | wartości pól niestandardowych, mapa `klucz => wartosc`; klucze z `customFields()` |
 | `createdAt` | string | data utworzenia przy imporcie historycznym (ISO 8601) |
 | `creatorUserId` | int | autor przy imporcie historycznym; z `resolveUserId()`. Tylko przy tworzeniu |
@@ -39,7 +40,7 @@ wysyłaj opcji, API użyje domyślnego zachowania). Dla kontaktów istotne są:
 |---|---|---|
 | `duplicateCheck` | list<string> | pola, po których szukać istniejącej osoby (np. `['email']`, `['externalId']`). KAŻDE wskazane pole MUSI mieć wartość w input - SDK pilnuje tego lokalnie i rzuca `IncompleteDuplicateCheckException` |
 | `allowDuplicates` | bool | `true` = nie szukaj duplikatu, zawsze twórz nową osobę |
-| `requireDuplicateCheck` | bool | `true` = odmów zapisu, gdy żadnego pola domyślnego zestawu nie da się sprawdzić |
+| `requireDuplicateCheck` | bool | tryb importu (fail-closed): `true` = KAŻDE pole z `duplicateCheck` musi mieć wartość w żądaniu, brak choćby jednego to 422 wskazujące to pole. W `upsert()` obowiązuje każdą pozycję - item bez wartości dostaje status `failed` |
 
 Pozostałe pola `WriteOptions` (`taxIdLookup`, `failOnInvalidTaxId`,
 `createSystemNote`, `createContractorContacts`) dotyczą kontrahentów, nie osób
@@ -262,11 +263,18 @@ $client->contacts()->update(7, new ContactInput(
   `ContactInput`.** To osobny obiekt obok pól osoby.
 - **Osoba może należeć do wielu kartotek.** Odczyt ma `contractorId` (główna)
   i `contractorIds` (wszystkie). Nie zakładaj, że osoba jest w jednej firmie.
+- **`contractorIds` w zapisie ZASTĘPUJE listę.** Chcesz dopiąć kolejną firmę bez
+  gubienia poprzednich - użyj `contractorId` (dopina jako główną) albo przekaż
+  KOMPLET w `contractorIds`. Kartoteka wypadająca z listy zabiera ze sobą
+  powiązanie osoby ze swoimi szansami i zgłoszeniami.
+- **Telefon i e-mail przechodzą przez normalizację API.** Numer niepoprawny wg
+  libphonenumber i błędny adres NIE zapisują się - wracają w `->warnings`, a reszta
+  rekordu i tak powstaje. Zasady i konsekwencje: "Normalizacja wejścia" w
+  [ai_integration.md](../ai_integration.md).
 - **Nie zgaduj `contractorId` ani `ownerUserId`.** Rozwiąż nazwę na id przez
   odczyt; przy zerze/wielu trafieniach dopytaj.
-- **Odczyt vs zapis.** `Contact` (odczyt) ma `name` (złożone przez CRM),
-  `contractorIds`, `lastActivityAt` - w zapisie podajesz `firstName`/`lastName`
-  osobno i pojedynczy `contractorId`.
+- **Odczyt vs zapis.** `Contact` (odczyt) ma `name` (złożone przez CRM)
+  i `lastActivityAt` - w zapisie podajesz `firstName`/`lastName` osobno.
 - **`create()`/`update()` zwracają `WriteResult`, `upsert()` zwraca
   `UpsertResult`.** Szczegóły: sekcja "Co zwracają zapisy" w
   [ai_integration.md](../ai_integration.md).

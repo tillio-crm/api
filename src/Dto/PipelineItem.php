@@ -16,6 +16,9 @@ final readonly class PipelineItem
 {
     /**
      * @param array<string, mixed> $customField wartości pól niestandardowych
+     * @param list<int>            $contactIds  kontakty przypięte do szansy, w kolejności z panelu;
+     *                                          zawsze osoby kontrahenta szansy. Zapis przez
+     *                                          `PipelineItemInput::$contactIds` (od API 2.15.0)
      * @param array<string, mixed> $raw         pełny rekord z API
      */
     public function __construct(
@@ -39,6 +42,7 @@ final readonly class PipelineItem
         public ?string $createdAt,
         public ?string $updatedAt,
         public array $customField,
+        public array $contactIds,
         public array $raw = [],
     ) {
     }
@@ -69,6 +73,7 @@ final readonly class PipelineItem
             createdAt: Cast::string($row['createdAt'] ?? null),
             updatedAt: Cast::string($row['updatedAt'] ?? null),
             customField: Cast::map($row['customField'] ?? null),
+            contactIds: Cast::intList($row['contactIds'] ?? null),
             raw: $row,
         );
     }

@@ -1,9 +1,10 @@
-# Playbook: Wyszukanie po numerze telefonu (lookup)
+# Playbook: Wyszukanie po numerze i adresie (lookup)
 
-"Kto dzwoni" - rozpoznanie kontaktu i kontrahenta po numerze telefonu. Pisane
+"Kto dzwoni" i "kto pisze" - rozpoznanie kontaktu i kontrahenta po numerze
+telefonu (API >= 2.10.0) albo po adresie e-mail (API >= 2.15.0). Pisane
 dla asystenta AI - zaklada wspolne wzorce z
 [ai_integration.md](../ai_integration.md) (zwlaszcza "Zlota zasada: nie zgaduj
-id"). Wymaga API >= 2.10.0.
+id").
 
 Zasob: `$client->lookup()`. To odczyt tylko do czytania - nic nie zapisuje.
 Typowy nastepny krok po lookup: zapis rozmowy
@@ -13,18 +14,26 @@ i `contractorId`.
 
 ## Model danych w skrocie
 
-Jedna metoda: `phone(string $number): PhoneLookupResult`. Przyjmuje numer w
-dowolnej postaci - API sprowadza go do kanonu miedzynarodowego po swojej stronie.
-Zwraca dwie listy: kontakty (`contacts`) i kontrahenci (`contractors`), ktorzy
-maja ten numer.
+Dwie metody o blizniaczym ksztalcie wyniku:
+
+- `phone(string $number): PhoneLookupResult` - numer w dowolnej postaci, API
+  sprowadza go do kanonu miedzynarodowego po swojej stronie,
+- `email(string $email): EmailLookupResult` - adres w dowolnym zapisie (wielkie
+  litery, forma `Jan Kowalski <jan@acme.pl>`), API sprowadza go do kanonu
+  (male litery, sam adres).
+
+Obie zwracaja dwie listy: kontakty (`contacts`) i kontrahenci (`contractors`),
+ktorzy maja ten numer albo adres.
 
 ```php
 $result = $client->lookup()->phone('+48601234567');
+$byMail = $client->lookup()->email('jan.kowalski@acme.pl');
 ```
 
 Kontakt trafia na liste `contacts`, gdy numer pasuje do jego pola glownego
-(`phone`) ALBO alternatywnego (`phoneAlternative`). Kontrahent trafia na
-`contractors`, gdy numer jest zapisany wprost na kartotece firmy.
+(`phone`) ALBO alternatywnego (`phoneAlternative`) - a w lookupie po adresie,
+gdy adres jest wsrod jego e-maili. Kontrahent trafia na `contractors`, gdy numer
+albo adres jest zapisany wprost na kartotece firmy.
 
 Wynik moze byc:
 
@@ -33,19 +42,20 @@ Wynik moze byc:
 - wieloznaczny - kilka kontaktow (ten sam numer u kilku osob) albo mieszanka
   kontaktow i kontrahentow. Wtedy nie zgaduj - patrz Pulapki.
 
-Poniewaz metoda nie ma inputu do zapisu, sekcja "Pola" opisuje pola ODCZYTU:
-strukture `PhoneLookupResult` i jej elementow.
+Poniewaz metody nie maja inputu do zapisu, sekcja "Pola" opisuje pola ODCZYTU:
+strukture wyniku i jego elementow.
 
 ## Pola
 
-`PhoneLookupResult` - korzen wyniku:
+`PhoneLookupResult` / `EmailLookupResult` - korzen wyniku:
 
 | pole | typ | po co |
 |---|---|---|
-| `number` | ?string | Numer po sprowadzeniu do kanonu miedzynarodowego (tak, jak API go zrozumialo). Warto pokazac uzytkownikowi, na jakim numerze faktycznie szukano |
-| `contacts` | list&lt;Contact&gt; | Kontakty (osoby) z tym numerem w polu glownym albo alternatywnym, aktywne pierwsze (max 50) |
-| `contractors` | list&lt;Contractor&gt; | Kontrahenci (firmy) z tym numerem na kartotece (max 50) |
-| `raw` | array | Pelny surowy rekord z API (gdy potrzebujesz pola spoza DTO) |
+| `number` (tylko lookup po numerze) | ?string | Numer po sprowadzeniu do kanonu miedzynarodowego (tak, jak API go zrozumialo). Warto pokazac uzytkownikowi, na jakim numerze faktycznie szukano |
+| `email` (tylko lookup po adresie) | ?string | Adres po sprowadzeniu do kanonu (male litery, sam adres) - to po nim szukano |
+| `contacts` | list&lt;Contact&gt; | Kontakty (osoby) z tym numerem w polu glownym albo alternatywnym (lookup po adresie: z tym adresem wsrod swoich e-maili), aktywne pierwsze (max 50) |
+| `contractors` | list&lt;Contractor&gt; | Kontrahenci (firmy) z tym numerem albo adresem na kartotece (max 50) |
+| `raw` | array | Pelny surowy rekord z API (gdy potrzebujesz pola spoza DTO, np. `truncated`) |
 
 Od API 2.12.0 obie listy niosa PELNE rekordy - dokladnie te same DTO, co
 `contacts()->get()` i `contractors()->get()`. Masz wiec od razu e-mail,
@@ -69,8 +79,8 @@ Flaga `active` (kontakt aktywny w CRM) jest tylko w odpowiedzi lookupu, nie ma
 jej w kontrakcie kontaktu, wiec czytasz ja z `$contact->raw['active']`.
 Nieaktywny kontakt to sygnal do ostroznosci (stary rekord).
 
-Pelna lista: `src/Dto/PhoneLookupResult.php`, `src/Dto/Contact.php`,
-`src/Dto/Contractor.php`.
+Pelna lista: `src/Dto/PhoneLookupResult.php`, `src/Dto/EmailLookupResult.php`,
+`src/Dto/Contact.php`, `src/Dto/Contractor.php`.
 
 ## Mapowanie intencji uzytkownika na dane API
 
@@ -80,6 +90,8 @@ Pelna lista: `src/Dto/PhoneLookupResult.php`, `src/Dto/Contact.php`,
 | "podepnij rozmowe do dzwoniacego" | `contactId` z `contacts[0]->id` | tylko gdy dokladnie jeden kontakt |
 | "przypnij do firmy tej osoby" | `contractorId` z `contacts[0]->contractorId` | j.w., gdy kontakt niesie kartoteke |
 | "numer nieznany, zaloz kontakt" | pusty wynik -> `contacts()->create(...)` | patrz playbook [contacts](../contacts/README.md) |
+| "przyszedl mail od jan@acme.pl, kto to" | `lookup()->email($adres)` | adres wprost, takze w formie `Imie <adres>` |
+| "czy ten adres juz jest w CRM" | pusty wynik `email()` = nie ma | sprawdzenie przed zalozeniem rekordu (formularze, Zapier) |
 
 ## Scenariusz flagowy: przychodzi polaczenie, znajdz kto dzwoni
 
@@ -162,6 +174,34 @@ $contractorId = $contactId !== null
 // ... przekaz contactId i contractorId do PhoneCallInput
 ```
 
+### Kto pisze: lookup po adresie e-mail (API >= 2.15.0)
+
+Ten sam uklad co przy numerze, tylko wejsciem jest adres. Typowe uzycie: zanim
+zalozysz kontakt albo kontrahenta z formularza, sprawdz, czy adres juz jest
+w CRM - dopasowanie jest DOKLADNE (bez wzgledu na wielkosc liter), w odroznieniu
+od filtra `email` na liscie kontrahentow, ktory szuka czesciowo.
+
+```php
+$result = $client->lookup()->email('Jan Kowalski <JAN.KOWALSKI@acme.pl>');
+
+// data.email mowi, po czym faktycznie szukano (kanon: male litery, sam adres).
+echo "Szukano po: {$result->email}\n";
+
+if ($result->contacts === [] && $result->contractors === []) {
+    // Adresu nie ma w CRM - dopiero teraz zakladaj rekord.
+    return;
+}
+
+foreach ($result->contacts as $contact) {
+    $active = ($contact->raw['active'] ?? true) === true ? '' : ' [nieaktywny]';
+    echo "Kontakt #{$contact->id}: {$contact->name}{$active}\n";
+}
+```
+
+Adres niepoprawny (albo brak parametru) to 422 `query.invalidValue` /
+`query.required`, nie pusty wynik - zlap `ValidationException` i powiedz
+uzytkownikowi, ze adres jest do poprawy.
+
 ### Numer alternatywny
 
 Kontakt moze trafic na liste przez numer alternatywny, nie glowny. Gdy chcesz
@@ -177,9 +217,16 @@ uzywasz tylko `contactId`, wiec zwykle to nieistotne.
   wspolna komorka firmowa). Przy wielu kontaktach NIE wybieraj pierwszego z
   brzegu - to zlamanie zlotej zasady. Oddaj liste do decyzji albo zapisz
   rozmowe bez `contactId`.
-- **Numer normalizowany po stronie API.** Podajesz numer w dowolnej postaci,
-  ale wynik `->number` jest w kanonie miedzynarodowym - pokaz go uzytkownikowi,
-  zeby bylo jasne, na czym faktycznie szukano.
+- **Numer i adres normalizowane po stronie API.** Podajesz je w dowolnej
+  postaci, ale wynik (`->number`, `->email`) jest w kanonie - pokaz go
+  uzytkownikowi, zeby bylo jasne, na czym faktycznie szukano.
+- **Numer nie do uratowania to 422, nie pusty wynik.** Od API 2.15.0 lookup
+  odrzuca numer niepoprawny wg libphonenumber (za krotki, za dlugi, z doklejonym
+  numerem wewnetrznym) - tak samo jak zly adres w `email()`. To blad wejscia,
+  a nie "nie znaleziono".
+- **Obciecie do 50 trafien.** Przy numerze centrali wpisanym wielu osobom listy
+  sa przyciete, a `raw['truncated']['contacts']` / `['contractors']` to `true` -
+  reszte znajdziesz filtrem na liscie.
 - **Kontakt vs kontrahent to dwie osobne listy.** Numer moze pasowac tylko do
   firmy (`contractors`) bez zadnego kontaktu, tylko do osoby (`contacts`), albo
   do obu. Sprawdzaj obie.

@@ -24,7 +24,7 @@ $result = $client->contacts()->create(
 );
 
 // Aktualizacja
-$client->contacts()->update(777, new ContactInput(phone: '+48000000000'));
+$client->contacts()->update(777, new ContactInput(phone: '+48601234567'));
 
 // Upsert: trafienie w duplikat = status "attached" (dane DOPIĘTE do istniejącej
 // osoby), nie "updated" jak u kontrahentów

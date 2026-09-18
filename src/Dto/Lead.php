@@ -18,6 +18,9 @@ final readonly class Lead
      * @param array<string, mixed> $customField wartości pól niestandardowych
      * @param list<string>         $emails      adresy e-mail leada, główny pierwszy; zapis przez
      *                                          `LeadInput::$emails` (od API 2.13.0)
+     * @param list<int>            $leadTagIds  tagi leada (słownik `dictionaries()->leadTags()`),
+     *                                          priorytet malejąco; zapis przez `LeadInput::$leadTagIds`
+     *                                          (od API 2.15.0)
      * @param array<string, mixed> $raw         pełny rekord z API
      */
     public function __construct(
@@ -57,6 +60,7 @@ final readonly class Lead
         public ?string $lastActivityAt,
         public array $customField,
         public array $emails,
+        public array $leadTagIds,
         public array $raw = [],
     ) {
     }
@@ -103,6 +107,7 @@ final readonly class Lead
             lastActivityAt: Cast::string($row['lastActivityAt'] ?? null),
             customField: Cast::map($row['customField'] ?? null),
             emails: Cast::stringList($row['emails'] ?? null),
+            leadTagIds: Cast::intList($row['leadTagIds'] ?? null),
             raw: $row,
         );
     }

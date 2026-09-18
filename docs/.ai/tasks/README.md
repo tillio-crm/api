@@ -26,7 +26,7 @@ na id (patrz niżej).
 |---|---|---|
 | "dla Jana Kowalskiego i Anny Nowak" | `assignedUserIds: [id, id]` | `users()->list(['lastName' => ...])`, dopasuj imię |
 | "termin do piątku" / "na 2026-09-10" | `dueDate` (ISO 8601) | policz datę, sformatuj `DATE_ATOM` (uwaga na "najbliższy piątek" - patrz Pułapki) |
-| "pilne" / "wysoki priorytet" | `priority` (int) | kontrakt nie definiuje skali; jeśli nie znasz mapowania tej instancji - pomiń albo dopytaj, nie zgaduj liczby |
+| "pilne" / "wysoki priorytet" | `priority` (int) | skala jest stała: `0` standard, `1` wysoki, `2` najwyższy (API >= 2.15.0); inna liczba to 422 |
 | "u kontrahenta Acme" | `contractorId` | `contractors()->list(['name' => 'Acme'])` |
 | "osoba kontaktowa Jan Kowalski" | `contactId` (API >= 2.8.0) | `contacts()->list([...])`, dopasuj osobę |
 | "przy szansie Oferta dla Acme" | `pipelineItemId` | `pipelineItems()->list([...])`, dopasuj szansę (playbook pipeline-items) |
@@ -206,8 +206,13 @@ $templates = $client->tasks()->templateCategories();   // kategorie szablonow
   innego kontrahenta niż `contractorId` to 422 na `pipelineItemId`; bez
   `contractorId` zadanie dostaje kontrahenta szansy. W `update()` sama zmiana
   `contractorId` odpina szansę, a przejście do szansy innego kontrahenta wymaga
-  `contractorId` i `pipelineItemId` razem. Zadania szansy odczytasz przez
+  `contractorId` i `pipelineItemId` razem. Odpięcie szansy: tablica
+  `['pipelineItemId' => null]` (w `TaskInput` null znaczy "nie wysyłaj", a pusty
+  string nie odpina). Zadania szansy odczytasz przez
   `tasks()->list(['pipelineItemId' => $id])` (pole `Task->pipelineItemId`).
+- **`priority` to enum `0|1|2`** (0 standard, 1 wysoki, 2 najwyższy; API >= 2.15.0).
+  Inna wartość to 422 `body.invalidValue` przed zapisem - ta sama skala obowiązuje
+  w zgłoszeniach i leadach.
 - **`priority` razem z innymi polami w `update()`** (API >= 2.14.0). CRM zapisuje
   priorytet osobną operacją, więc API robi dwa zapisy i lądują wszystkie pola.
   Gdy drugi zapis się nie uda, dostaniesz 422 `task.partialUpdate` z listą pól

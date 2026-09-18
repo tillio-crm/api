@@ -13,6 +13,7 @@ use TillioCrm\Api\Dto\Permission;
 use TillioCrm\Api\Dto\PipelineFunnel;
 use TillioCrm\Api\Dto\PipelineFunnelInput;
 use TillioCrm\Api\Dto\ProcessStageInput;
+use TillioCrm\Api\Dto\StatusChangeReason;
 use TillioCrm\Api\Dto\TicketProcess;
 use TillioCrm\Api\Dto\TicketProcessInput;
 use TillioCrm\Api\Dto\UserRole;
@@ -736,6 +737,29 @@ final readonly class Dictionaries extends Resource
     }
 
     /**
+     * `GET /v2/pipeline/status-change-reasons` - powody zmiany statusu szansy do
+     * `pipelineItems()->changeStatus()` (wymaga API >= 2.15.0). Powód należy do
+     * statusu (2 = stracona, 3 = wygrana) i do lejka ALBO jest wspólny dla
+     * wszystkich lejków (`pipelineFunnelId === null`, `isDefault`). Filtr
+     * `$pipelineFunnelId` oddaje powody tego lejka RAZEM ze wspólnymi - dokładnie
+     * ten zbiór przyjmuje zmiana statusu szansy z tego lejka.
+     *
+     * @param int|null $pipelineStatusId tylko powody tego statusu; null = wszystkie
+     * @param int|null $pipelineFunnelId powody tego lejka i wspólne; null = wszystkie
+     *
+     * @return list<StatusChangeReason>
+     */
+    public function pipelineStatusChangeReasons(?int $pipelineStatusId = null, ?int $pipelineFunnelId = null): array
+    {
+        $query = Cast::withoutNulls([
+            'pipelineStatusId' => $pipelineStatusId,
+            'pipelineFunnelId' => $pipelineFunnelId,
+        ]);
+
+        return self::mapList($this->client->get('v2/pipeline/status-change-reasons', $query), StatusChangeReason::fromArray(...));
+    }
+
+    /**
      * `POST /v2/pipeline/funnels/{id}/stages` - nowy etap lejka.
      *
      * @param ProcessStageInput|array<string, mixed> $input
@@ -770,6 +794,48 @@ final readonly class Dictionaries extends Resource
     public function leadProcesses(): array
     {
         return self::mapList($this->client->get('v2/lead/statuses'), LeadProcess::fromArray(...));
+    }
+
+    /**
+     * `GET /v2/lead/categories` - kategorie leadów (tylko odczyt; zakładane
+     * w panelu CRM). Mapują `Lead::$categoryId` i pole `categoryId` w zapisie
+     * leada. Wymaga API >= 2.15.0.
+     *
+     * @return list<DictionaryEntry>
+     */
+    public function leadCategories(): array
+    {
+        return $this->entries('v2/lead/categories');
+    }
+
+    /**
+     * `GET /v2/lead/tags` - tagi leadów (tylko odczyt; zakładane w panelu CRM).
+     * Mapują `Lead::$leadTagIds`, pole `leadTagIds` w zapisie leada i filtr listy
+     * `leadTagId`. Wymaga API >= 2.15.0.
+     *
+     * @return list<DictionaryEntry>
+     */
+    public function leadTags(): array
+    {
+        return $this->entries('v2/lead/tags');
+    }
+
+    /**
+     * `GET /v2/lead/status-change-reasons` - powody zmiany statusu leada do
+     * `leads()->changeStatus()` (wymaga API >= 2.15.0). Każdy powód należy do
+     * jednego statusu KOŃCZĄCEGO proces (`type` = `qualified`/`disqualified`),
+     * a `noteRequired` mówi, że zmiana z nim wymaga notatki. Pozycje nieaktywne
+     * też wracają - stare leady nadal je mają w `statusChangeReasonId`.
+     *
+     * @param int|null $leadStatusId tylko powody tego statusu; null = wszystkie
+     *
+     * @return list<StatusChangeReason>
+     */
+    public function leadStatusChangeReasons(?int $leadStatusId = null): array
+    {
+        $query = $leadStatusId === null ? [] : ['leadStatusId' => $leadStatusId];
+
+        return self::mapList($this->client->get('v2/lead/status-change-reasons', $query), StatusChangeReason::fromArray(...));
     }
 
     /**

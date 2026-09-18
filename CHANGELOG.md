@@ -5,6 +5,119 @@ z perspektywy konsumenta SDK; wpisy grupowane per wydanie (przy 0.1.0 wszystko
 jest nowe, od kolejnych wydań sekcje Dodane/Zmienione/Naprawione).
 Wersjonowanie: semver (przed 1.0.0 zmiany łamiące = minor).
 
+## [Unreleased]
+
+### Dodane
+
+- `users()->activity()`, `users()->iterateActivity()` i `users()->getActivity($id)` -
+  `GET /v2/users/activity` i `GET /v2/users/{id}/activity` (API >= 2.16.0):
+  ostatnie logowanie, ostatnia czynność i licznik logowań konta, policzone ze
+  wszystkich jego sesji. Nowe DTO `UserActivity` (`lastLoginAt`, `lastActivityAt`,
+  `loginCount`, `hasEverLoggedIn()`); konto bez logowań ma daty `null` i `0`.
+  Agregaty są na osobnej trasie, żeby `users()->list()` został lekki, więc tych
+  pól nie ma w `SystemUser`. `iterateActivity()` wymusza `sort=userId` - ta lista
+  nie ma pola `id`. "Kto nie logował się od miesiąca": `sort=lastActivityAt`,
+  `sortDir=asc` (konta bez logowań idą pierwsze).
+- `SystemUser`: `jobTitle`, `contactPhone`, `contactEmail` i `gender` w odczycie
+  (API >= 2.16.0) - służbowe dane kontaktowe. `email` to nadal LOGIN i nie musi
+  być tym samym adresem co `contactEmail`. Prywatny telefon i e-mail, hasła,
+  tokeny i ustawienia 2FA dalej nie wychodzą przez API.
+- `UserInput::$contactEmail` - służbowy adres e-mail do kontaktu, inny niż login
+  (API >= 2.16.0). Adres niepoprawny nie blokuje założenia konta, wraca
+  w `CreatedUser::$warnings`.
+- Filtry `users()->list()`: `jobTitle` (zawiera), `contactPhone` (zawiera),
+  `contactEmail` (dokładnie) i `gender` (`male|female|unspecified`), API >= 2.16.0.
+- `leads()->changeStatus($id, $leadStatusId, $reasonId, $note)` -
+  `POST /v2/leads/{id}/status` (API >= 2.15.0). Status leada to w CRM proces
+  z historią, więc ma własną trasę: PUT dalej odbija `leadStatusId` błędem 422
+  `body.fieldNotUpdatable`. Powód zmiany i notatkę (do 255 znaków) przyjmują
+  WYŁĄCZNIE statusy kończące (`qualified`/`disqualified`); powód
+  z `noteRequired` bez notatki to 422. Odpowiedź niesie leada po zmianie
+  w `WriteResult::$data`.
+- `pipelineItems()->changeStage($id, $pipelineStageId)` -
+  `POST /v2/pipeline/items/{id}/stage` (API >= 2.15.0). CRM prowadzi historię
+  etapów, dobiera prawdopodobieństwo z nowego etapu i przy zmianie lejka
+  przepina przypisania pól niestandardowych. Etap wymagający pól, których
+  szansa nie ma, to 422 `body.requiredFieldsMissing` z ich listą; brak dostępu
+  do lejka etapu docelowego - 403.
+- `pipelineItems()->changeStatus($id, $pipelineStatusId, $reasonId, $note)` -
+  `POST /v2/pipeline/items/{id}/status` (API >= 2.15.0): 1 = aktywna (ponowne
+  otwarcie), 2 = stracona, 3 = wygrana. Powód i notatkę przyjmują tylko 2 i 3,
+  a powód musi należeć do statusu i do lejka szansy albo być wspólny.
+- `lookup()->email($adres)` - `GET /v2/lookup/email` (API >= 2.15.0): kontakty
+  i kontrahenci z tym adresem, dopasowanie dokładne (bez względu na wielkość
+  liter), pełne rekordy jak w `lookup()->phone()`. Adres przyjmowany też
+  w formie `Jan Kowalski <jan@acme.pl>`; nowe DTO `EmailLookupResult`.
+- Cztery słowniki (tylko odczyt, API >= 2.15.0): `dictionaries()->leadCategories()`,
+  `leadTags()`, `leadStatusChangeReasons(?int $leadStatusId)` oraz
+  `pipelineStatusChangeReasons(?int $pipelineStatusId, ?int $pipelineFunnelId)`.
+  Powody zmiany statusu mają własne DTO `StatusChangeReason` (`noteRequired`,
+  `leadStatusId`, `pipelineStatusId`, `pipelineFunnelId`, `isDefault`); zakłada
+  się je w panelu CRM, API przyjmuje wyłącznie ich id.
+- `LeadInput`: `categoryId`, `region`, `district` i `leadTagIds` w zapisie
+  (API >= 2.15.0). `leadTagIds` w `create()` DOKŁADA tagi do trafionego leada,
+  w `update()` jest kompletną listą docelową (`[]` zdejmuje wszystkie);
+  zdjęcie kategorii wymaga jawnego nulla, czyli tablicy
+  (`update($id, ['categoryId' => null])`). `contractorSourceId` jest od 2.15.0
+  edytowalny także w `update()`.
+- `Lead::$leadTagIds` w odczycie oraz filtry listy `leadTagId` i `district`.
+- `PipelineItemInput::$contactIds` i `PipelineItem::$contactIds` - kontakty
+  przypięte do szansy (API >= 2.15.0, najwyżej 50). Wyłącznie osoby jej
+  kontrahenta - obca to 422; w `update()` kompletna lista docelowa, `[]` odpina
+  wszystkie. Nowy filtr listy `contactId`.
+- `ContactInput::$contractorIds` - zastąpienie całej listy kartotek kontaktu
+  (pierwsza = główna, API >= 2.10.0). Pole było w kontrakcie POST i PUT, a nie
+  miało odpowiednika w DTO; pusta lista to 422 po stronie API.
+- `DictionaryEntryInput`: `isFinal`, `icon`, `description`, `isUnique`,
+  `passTasks` i `acl` - pola, które kontrakt przewiduje dla statusów zadań
+  i zgłoszeń, typów notatek, priorytetów i typów płatności kontrahenta, typów
+  adresów oraz statusów projektów, a których DTO dotąd nie wysyłało.
+- `acl` w `LeadProcessInput`, `PipelineFunnelInput` i `TicketProcessInput` oraz
+  `pinProtected` w `TicketProcessInput` - ograniczenie widoczności procesu
+  albo lejka, dotąd nieobecne w DTO mimo obecności w kontrakcie.
+
+### Zmienione
+
+- **ZMIANA ŁAMIĄCA - `UserInput`: `position` -> `jobTitle`, `phone` ->
+  `contactPhone`.** Kontrakt 2.16.0 przemianował te pola w `POST /v2/users`
+  i pod starymi nazwami już ich nie zna. Kod zakładający konta trzeba
+  przemianować; odczyt zyskuje te same nazwy (`SystemUser::$jobTitle`,
+  `$contactPhone`), więc zapis i odczyt mówią wreszcie tym samym słownikiem.
+- Mapa tras zweryfikowana 1:1 z kontraktem API **2.16.0** (240 -> **242 trasy**:
+  aktywność wszystkich użytkowników i pojedynczego konta).
+- Mapa tras zweryfikowana 1:1 z kontraktem API **2.15.0** (232 -> **240 tras**:
+  zmiana statusu leada, etapu i statusu szansy, lookup po adresie e-mail
+  i cztery nowe słowniki; 2.14.1 po drodze tras nie zmieniała).
+- `priority` leada, zgłoszenia i zadania to enum `0|1|2` (0 standard, 1 wysoki,
+  2 najwyższy; domyślnie 0). Inna wartość kończy się 422 `body.invalidValue`
+  przed zapisem - SDK nie filtruje jej lokalnie, tylko podaje błąd z nazwą pola.
+  Dokumentacja nie mówi już "kontrakt nie definiuje skali".
+- Notatka kontrahenta przyjmuje `serviceId` i `pipelineItemId` wprost
+  z kontraktu, a usługa albo szansa INNEGO kontrahenta to teraz 422 na tym polu
+  (wcześniej CRM po cichu zerował powiązanie i notatka powstawała bez niego).
+  W odczycie powiązanie z szansą nadal nazywa się `pipelineId`.
+- Dokumentacja normalizacji wejścia (nowa sekcja "Normalizacja wejścia"
+  w `docs/.ai/ai_integration.md`): telefon sprowadzany do E.164 przez
+  libphonenumber, a numer niepoprawny dla swojego kraju - za krótki, za długi,
+  z doklejonym numerem wewnętrznym - NIE zapisuje się i wraca w `warnings`
+  (w `lookup()->phone()` to 422). NIP bez prefiksu kraju traktowany jak polski
+  (10 cyfr, `PL` pomijane), z prefiksem z obsługiwanej listy sprawdzany co do
+  formatu kraju; e-mail, domena i URL walidowane; treści HTML czyszczone do
+  bezpiecznego podzbioru jak w edytorze CRM, a pusta po wycięciu treść to pole
+  pominięte z ostrzeżeniem. Wyszukiwanie duplikatu jest odporne na format
+  (telefon z plusem i bez, domena z `www.`, NIP z `PL`), więc SDK niczego nie
+  normalizuje przed wysyłką.
+- Numery telefonów w fikstach testowych i przykładach są poprawne wg
+  libphonenumber - `+48000000000` i `+48000000001` nie przeszłyby już zapisu.
+- PHPDoc `selfcheck()`: sekcja `core` raportu ma od API 2.14.1 pola
+  `callbacksChecked` i `mismatchedCallbacks` - pola modeli CRM, których zapis
+  wskazuje inną metodę niż ta, na której polega API (zapis przeszedłby bez błędu
+  i bez danych). Niepusta lista to `status: failed` i HTTP 500; SDK oddaje raport
+  jak przy każdym wykrytym dryfie.
+- PHPDoc `TaskInput::$pipelineItemId`: odpięcie szansy w `tasks()->update()` to
+  jawny null w tablicy (`['pipelineItemId' => null]`), pusty string nie odpina.
+  Od API 2.14.1 specyfikacja oznacza to pole w PUT jako `nullable`.
+
 ## [0.3.1] - 2026-09-16
 
 Wydanie poprawkowe: uruchamialne przykłady trafiają do paczki z Composera.

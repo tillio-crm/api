@@ -242,6 +242,39 @@ final class TelephonyResourcesTest extends TestCase
         self::assertSame('https://firma.tillio.app/crm/contractors/7', $contractor->url);
     }
 
+    public function testLookupEmailSendsQueryAndMapsFullRecords(): void
+    {
+        // Adres podajemy w dowolnym zapisie; API oddaje kanon w polu `email`
+        // i PEŁNE rekordy - te same DTO co contacts()->get()/contractors()->get().
+        $this->transport->queueJson(200, '{"data":{"email":"jan.kowalski@acme.pl","contacts":[{"id":3,"firstName":"Jan","lastName":"Kowalski","email":"jan.kowalski@acme.pl","contractorId":7,"active":true}],"contractors":[{"id":7,"name":"Acme","email":"jan.kowalski@acme.pl"}],"truncated":{"contacts":false,"contractors":false}}}');
+
+        $result = $this->client()->lookup()->email('Jan Kowalski <JAN.KOWALSKI@acme.pl>');
+
+        $request = $this->transport->lastRequest();
+        self::assertSame('GET', $request->method);
+        self::assertSame('v2/lookup/email', $request->path);
+        self::assertSame(['email' => 'Jan Kowalski <JAN.KOWALSKI@acme.pl>'], $request->query);
+
+        self::assertSame('jan.kowalski@acme.pl', $result->email);
+        self::assertSame(3, $result->contacts[0]->id);
+        self::assertSame(7, $result->contacts[0]->contractorId);
+        self::assertSame('Acme', $result->contractors[0]->name);
+        // Flaga `active` jest tylko w lookupie - czytamy ją z surowego rekordu.
+        self::assertTrue($result->contacts[0]->raw['active'] ?? false);
+        self::assertFalse($result->raw['truncated']['contacts'] ?? true);
+    }
+
+    public function testLookupEmailReturnsEmptyListsForUnknownAddress(): void
+    {
+        // Brak trafień to 200 z pustymi listami, nie 404.
+        $this->transport->queueJson(200, '{"data":{"email":"nikt@acme.pl","contacts":[],"contractors":[],"truncated":{"contacts":false,"contractors":false}}}');
+
+        $result = $this->client()->lookup()->email('nikt@acme.pl');
+
+        self::assertSame([], $result->contacts);
+        self::assertSame([], $result->contractors);
+    }
+
     public function testTillioCallsReadDoesNotExposeApiKey(): void
     {
         $this->transport->queueJson(200, '{"data":{"registered":true,"apiUrl":"https://calls.example","hasApiKey":true,"providerId":4,"configId":9}}');

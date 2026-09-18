@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace TillioCrm\Api;
 
 /**
- * KOMPLETNA mapa tras API v2 (232 trasy, kontrakt 2.14.0) na metody SDK -
+ * KOMPLETNA mapa tras API v2 (242 trasy, kontrakt 2.16.0) na metody SDK -
  * kręgosłup gwarancji
  * pokrycia 100% tras. Test `RouteCoverageTest` pilnuje, żeby każdy wpis
  * wskazywał istniejącą, publiczną metodę, a po pobraniu specyfikacji instancji
@@ -108,6 +108,8 @@ final class RouteMap
         'GET /v2/leads/{id}' => self::R . 'Leads::get',
         'PUT /v2/leads/{id}' => self::R . 'Leads::update',
         'POST /v2/leads/upsert' => self::R . 'Leads::upsert',
+        // Zmiana statusu to proces z historią, nie PUT (>= 2.15.0).
+        'POST /v2/leads/{id}/status' => self::R . 'Leads::changeStatus',
 
         // --- Zadania + komentarze + załączniki (upload multipart) ------------------
         'GET /v2/tasks' => self::R . 'Tasks::list',
@@ -135,6 +137,9 @@ final class RouteMap
         'POST /v2/pipeline/items' => self::R . 'PipelineItems::create',
         'GET /v2/pipeline/items/{id}' => self::R . 'PipelineItems::get',
         'PUT /v2/pipeline/items/{id}' => self::R . 'PipelineItems::update',
+        // Etap i status to procesy z historią, nie PUT (>= 2.15.0).
+        'POST /v2/pipeline/items/{id}/stage' => self::R . 'PipelineItems::changeStage',
+        'POST /v2/pipeline/items/{id}/status' => self::R . 'PipelineItems::changeStatus',
 
         // --- Usługi + katalog usług ------------------------------------------------
         'GET /v2/services' => self::R . 'Services::list',
@@ -151,6 +156,9 @@ final class RouteMap
         // --- Użytkownicy (POST nieponawialny: hasło startowe jednorazowe) ----------
         'GET /v2/users' => self::R . 'Users::list',
         'POST /v2/users' => self::R . 'Users::create',
+        // Agregaty logowań na osobnej trasie, żeby lista użytkowników była lekka (>= 2.16.0).
+        'GET /v2/users/activity' => self::R . 'Users::activity',
+        'GET /v2/users/{id}/activity' => self::R . 'Users::getActivity',
 
         // --- DMS (upload multipart, download podpisanym URL-em) --------------------
         'GET /v2/contractors/{contractorId}/dms' => self::R . 'Dms::listing',
@@ -209,7 +217,8 @@ final class RouteMap
         'POST /v2/calendars/{id}/events' => self::R . 'Calendars::createEvent',
         'GET /v2/calendar/types' => self::R . 'Dictionaries::calendarTypes',
 
-        // --- Telefonia: połączenia, SMS, lookup (>= 2.10.0), integracja (>= 2.11.0) -
+        // --- Telefonia: połączenia, SMS, lookup po numerze (>= 2.10.0)
+        //     i po adresie (>= 2.15.0), integracja (>= 2.11.0) -----------------------
         'GET /v2/phone-calls' => self::R . 'PhoneCalls::list',
         'GET /v2/phone-calls/{id}' => self::R . 'PhoneCalls::get',
         'POST /v2/phone-calls' => self::R . 'PhoneCalls::create',
@@ -219,6 +228,7 @@ final class RouteMap
         'POST /v2/text-messages' => self::R . 'TextMessages::create',
         'PUT /v2/text-messages/{id}' => self::R . 'TextMessages::update',
         'GET /v2/lookup/phone' => self::R . 'Lookup::phone',
+        'GET /v2/lookup/email' => self::R . 'Lookup::email',
         'GET /v2/integrations/tillio-calls' => self::R . 'Integrations::tillioCalls',
         'PUT /v2/integrations/tillio-calls' => self::R . 'Integrations::registerTillioCalls',
         'DELETE /v2/integrations/tillio-calls' => self::R . 'Integrations::deleteTillioCalls',
@@ -296,6 +306,11 @@ final class RouteMap
         'POST /v2/lead/processes' => self::R . 'Dictionaries::createLeadProcess',
         'PUT /v2/lead/processes/{id}' => self::R . 'Dictionaries::updateLeadProcess',
         'POST /v2/lead/processes/{id}/statuses' => self::R . 'Dictionaries::createLeadStatus',
+        // Słowniki leadowe i powody zmiany statusu (>= 2.15.0).
+        'GET /v2/lead/categories' => self::R . 'Dictionaries::leadCategories',
+        'GET /v2/lead/tags' => self::R . 'Dictionaries::leadTags',
+        'GET /v2/lead/status-change-reasons' => self::R . 'Dictionaries::leadStatusChangeReasons',
+        'GET /v2/pipeline/status-change-reasons' => self::R . 'Dictionaries::pipelineStatusChangeReasons',
         'GET /v2/currencies' => self::R . 'Dictionaries::currencies',
     ];
 }

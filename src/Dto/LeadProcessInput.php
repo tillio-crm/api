@@ -11,12 +11,16 @@ namespace TillioCrm\Api\Dto;
 final readonly class LeadProcessInput implements Arrayable
 {
     /**
+     * @param array<string, mixed>|null                        $acl    ograniczenie widoczności
+     *                                                                 `{userIds?, departmentIds?, groupIds?}`;
+     *                                                                 puste = bez ograniczeń
      * @param list<ProcessStageInput|array<string, mixed>>|null $stages statusy zakładane razem z procesem
      */
     public function __construct(
         public ?string $name = null,
         public ?int $order = null,
         public ?bool $active = null,
+        public ?array $acl = null,
         public ?array $stages = null,
     ) {
     }
@@ -35,6 +39,7 @@ final readonly class LeadProcessInput implements Arrayable
             'name' => $this->name,
             'order' => $this->order,
             'active' => $this->active,
+            'acl' => $this->acl,
             'stages' => $stages,
         ]);
     }

@@ -32,7 +32,7 @@ Pelna lista pol input-DTO: `src/Dto/TicketInput.php` i
 |---|---|---|
 | `title` | string | tytul zgloszenia. WYMAGANE przy tworzeniu. |
 | `description` | string | tresc/opis zgloszenia. |
-| `priority` | int | priorytet. Kontrakt nie definiuje skali - jesli nie znasz mapowania tej instancji, pomin albo dopytaj, nie zgaduj liczby. |
+| `priority` | int | priorytet: `0` = standard, `1` = wysoki, `2` = najwyzszy (API >= 2.15.0). Inna liczba to 422 - nie zgaduj skali. |
 | `ownerUserId` | int | opiekun (osoba prowadzaca zgloszenie). Id przez `resolveUserId()`. |
 | `email` | string | adres nadawcy spoza CRM - pozwala powiazac zgloszenie z osoba bez kartoteki. |
 | `contractorId` | int | kontrahent, ktorego dotyczy zgloszenie. Id przez `contractors()->list(['name' => ...])`. |
@@ -221,8 +221,9 @@ $client->tickets()->create(new TicketInput(
   `stages` procesu z `dictionaries()->ticketProcesses()`, nie zgaduj liczby.
 - **Nie zgaduj `ownerUserId`.** Kilku pracownikow moze miec to samo nazwisko -
   `resolveUserId()` celowo rzuca przy wielu trafieniach. Dopytaj o e-mail.
-- **`priority` bez zdefiniowanej skali.** Kontrakt nie mowi, co znaczy dana
-  liczba - jesli nie znasz mapowania tej instancji, pomin pole albo dopytaj.
+- **`priority` to enum `0|1|2`** (0 standard, 1 wysoki, 2 najwyzszy; API >= 2.15.0).
+  Inna wartosc to 422 `body.invalidValue` przed zapisem; ta sama skala obowiazuje
+  w zadaniach i leadach.
 - **`open`/`archived` w odczycie bywaly stringami** ("0"/"1") na instancjach
   2.0.0-2.0.3; `Cast::bool` oba warianty normalizuje do bool.
 - **`messages()` nie stronicuje** - zwraca caly watek naraz.
