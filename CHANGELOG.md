@@ -5,7 +5,13 @@ z perspektywy konsumenta SDK; wpisy grupowane per wydanie (przy 0.1.0 wszystko
 jest nowe, od kolejnych wydań sekcje Dodane/Zmienione/Naprawione).
 Wersjonowanie: semver (przed 1.0.0 zmiany łamiące = minor).
 
-## [Unreleased]
+## [0.4.0] - 2026-09-18
+
+Wydanie z dostosowaniem do kontraktów API 2.15.0 i 2.16.0: przejścia statusów
+leada i szansy dedykowanymi trasami, lookup po adresie e-mail, kategorie i tagi
+leadów, kontakty przy szansie, a po stronie użytkowników służbowe dane kontaktowe
+i osobna trasa aktywności. Minor, bo doszły nowe metody i pola, a `UserInput`
+zmienia nazwy dwóch pól - szczegóły w Zmienione.
 
 ### Dodane
 
@@ -349,7 +355,8 @@ Pierwsze wydanie. Wymaga Tillio API v2 w wersji **co najmniej 2.0.4**
 - Selfcheck z raportem (HTTP 500 z raportem dryfu to wynik, nie awaria),
   `health()`, `whoami()`, `openapi()`, `modules()`.
 
-[Unreleased]: https://github.com/tillio-crm/api/compare/0.3.1...HEAD
+[Unreleased]: https://github.com/tillio-crm/api/compare/0.4.0...HEAD
+[0.4.0]: https://github.com/tillio-crm/api/compare/0.3.1...0.4.0
 [0.3.1]: https://github.com/tillio-crm/api/compare/0.3.0...0.3.1
 [0.3.0]: https://github.com/tillio-crm/api/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/tillio-crm/api/compare/0.1.0...0.2.0
