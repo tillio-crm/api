@@ -16,8 +16,14 @@ foreach ($client->leads()->iterate() as $lead) {
     $lead->leadStageId;     // etap procesu leadowego
     $lead->categoryId;      // kategoria (dictionaries()->leadCategories())
     $lead->leadTagIds;      // tagi (dictionaries()->leadTags())
+    $lead->url;             // link "otwórz w CRM" do karty leada (API >= 2.17.0)
 }
 $lead = $client->leads()->get(9);
+
+// Paczka znanych leadów jednym zapytaniem (API >= 2.17.0, do 100 id) - id
+// nieobecne w odpowiedzi = lead usunięty w CRM (CRM kasuje leady bez śladu).
+$page = $client->leads()->list(['id' => [659, 660, 702], 'limit' => 100]);
+$client->notes()->list(['leadId' => [659, 660]]);   // ich notatki, też jednym zapytaniem
 
 // Tworzenie (title wymagane). Od API 2.13.0 API najpierw szuka istniejącego
 // leada po e-mailu i telefonie - trafienie = 200 z tym leadem i podpiętymi

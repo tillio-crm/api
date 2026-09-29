@@ -7,6 +7,9 @@ namespace TillioCrm\Api\Resources;
 use TillioCrm\Api\Dto\CustomFieldDefinition;
 use TillioCrm\Api\Dto\CustomFieldFile;
 use TillioCrm\Api\Dto\CustomFieldInput;
+use TillioCrm\Api\Dto\CustomFieldOptionInput;
+use TillioCrm\Api\Dto\CustomFieldUpdateInput;
+use TillioCrm\Api\Dto\CustomFieldUpdateResult;
 use TillioCrm\Api\Dto\WriteResult;
 use TillioCrm\Api\Transport\FileUpload;
 
@@ -61,22 +64,70 @@ final readonly class CustomFields extends Resource
     }
 
     /**
-     * `PUT /v2/{entity}/custom-fields/{key}` - zmiana PRZYPISANIA pola do
-     * podtypów rekordów (encje `note`, `ticket`, `service`, `lead`, `pipeline`;
-     * patrz {@see CustomFieldInput::$assignedTo}). `assignedTo` to KOMPLETNA lista
-     * docelowa - usunięcie podtypu KASUJE wartości pola w jego rekordach, więc
-     * wymaga `allowUnassign: true` (wyłącznie bool: od API 2.14.0 napis "false"
-     * albo 1/0 to 422, wcześniej napis był brany za zgodę). Innych właściwości
-     * definicji nie da się zmienić - pole z błędną definicją trzeba założyć od nowa.
+     * `PUT /v2/{entity}/custom-fields/{key}` - zmiana istniejącego pola:
+     * PRZYPISANIE do podtypów rekordów (`assignedTo`, encje `note`, `ticket`,
+     * `service`, `lead`, `pipeline`; patrz {@see CustomFieldInput::$assignedTo})
+     * i od API 2.17.0 dopisanie opcji selecta (`options`, każda encja) - osobno
+     * albo razem. Samo dopisanie opcji ma wygodniejszą, typowaną metodę
+     * {@see appendOptions()}.
      *
-     * @param array{assignedTo: list<int>, allowUnassign?: bool} $input
+     * `assignedTo` to KOMPLETNA lista docelowa albo `'all'` (wszystkie podtypy
+     * istniejące w chwili zapisu, API >= 2.17.0). Usunięcie podtypu KASUJE wartości
+     * pola w jego rekordach, więc wymaga `allowUnassign: true` (wyłącznie bool: od
+     * API 2.14.0 napis "false" albo 1/0 to 422, wcześniej napis był brany za zgodę).
+     * Od API 2.17.0 `assignedTo` nie jest wymagane, o ile jest `options`; input bez
+     * obu to 422 `body.required`, a `assignedTo` przy encji bez podtypów - 422.
+     * Innych właściwości definicji nie da się zmienić - pole z błędną definicją
+     * trzeba założyć od nowa.
+     *
+     * Odpowiedź w `WriteResult::$data`: `key`, `assignedTo` (tylko encje
+     * z podtypami) i `options` (tylko SELECT/MULTISELECT, od API 2.17.0) -
+     * typowany widok: `CustomFieldUpdateResult::fromArray($result->data)`.
+     * `WriteResult::$id` jest tu zawsze null (definicję adresuje klucz).
+     *
+     * @param CustomFieldUpdateInput|array{assignedTo?: list<int>|'all', allowUnassign?: bool, options?: list<string|array{name: string, color?: string}>} $input
      */
-    public function update(string $entity, string $key, array $input): WriteResult
+    public function update(string $entity, string $key, CustomFieldUpdateInput|array $input): WriteResult
     {
         return WriteResult::fromResponse(
-            $this->client->put(sprintf('v2/%s/custom-fields/%s', rawurlencode($entity), rawurlencode($key)), $input),
+            $this->client->put(self::fieldPath($entity, $key), self::payload($input)),
             'id',
         );
+    }
+
+    /**
+     * `PUT /v2/{entity}/custom-fields/{key}` z samym `options` - dopisanie opcji
+     * do pola SELECT albo MULTISELECT dowolnej encji (API >= 2.17.0).
+     *
+     *     $field = $client->customFields()->appendOptions('lead', 'leads_select_3', [
+     *         'Facebook Lead Ads',
+     *         new CustomFieldOptionInput('Polecenie', '#00aa00'),
+     *     ]);
+     *     $value = $field->optionValue('Polecenie');   // id opcji do customField
+     *
+     * TYLKO dopisuje: nazwy już obecne w polu API pomija, istniejące opcje zostają
+     * bez zmian (id, kolor, kolejność). Tę samą pełną listę oczekiwanych opcji
+     * można więc wysyłać przy każdej synchronizacji - powtórka niczego nie zmienia.
+     * Usunięcia ani zmiany nazwy API nie robi (CRM skasowałby przy tym wartości
+     * w rekordach) - to operacja w panelu. Pole innego typu = 422 na `options`,
+     * pusta lista = 422. Wymaga klucza API superadmina; instancja starsza niż
+     * 2.17.0 odrzuci `options` błędem 422.
+     *
+     * @param list<string|CustomFieldOptionInput> $options nazwy opcji albo opcje z kolorem
+     *
+     * @return CustomFieldUpdateResult komplet opcji pola po zapisie (`options`) z ich id
+     */
+    public function appendOptions(string $entity, string $key, array $options): CustomFieldUpdateResult
+    {
+        return CustomFieldUpdateResult::fromArray(self::single($this->client->put(
+            self::fieldPath($entity, $key),
+            (new CustomFieldUpdateInput(options: $options))->toArray(),
+        )));
+    }
+
+    private static function fieldPath(string $entity, string $key): string
+    {
+        return sprintf('v2/%s/custom-fields/%s', rawurlencode($entity), rawurlencode($key));
     }
 
     /**

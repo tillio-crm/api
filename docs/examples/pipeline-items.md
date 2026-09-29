@@ -44,3 +44,69 @@ $client->pipelineItems()->changeStatus($result->id ?? 0, 3);
 // Szanse jednej osoby kontaktowej (API >= 2.15.0)
 $client->pipelineItems()->list(['contactId' => 50]);
 ```
+
+## Synchronizacja szans z kontrahentami (API >= 2.17.0)
+
+`include=contractor` osadza kontrahenta szansy w `$item->contractor` (kształt jak
+w `contractors()->list()`: z `customField`, bez adresów) - dla całej strony jednym
+zapytaniem zamiast osobnego `contractors()->get()` na każdą szansę.
+
+```php
+// Szanse oznaczone flagą w polu niestandardowym, z kontrahentami, w jednym lejku.
+foreach ($client->pipelineItems()->iterate([
+    'customField'      => ['partner_flag' => 3],   // id opcji TAK
+    'pipelineFunnelId' => 2,                       // lejek (API >= 2.17.0)
+    'include'          => 'contractor',
+]) as $item) {
+    $item->pipelineFunnelId;          // lejek, wynika z etapu - tylko odczyt
+    $item->url;                       // link "otwórz w CRM" do karty szansy
+    $item->contractor?->taxId;        // null = kontrahenta już nie ma w CRM
+    $item->contractor?->customField;  // pola niestandardowe kontrahenta
+}
+
+// To samo dla jednej szansy.
+$item = $client->pipelineItems()->get(6, include: ['contractor']);
+```
+
+Bez `include` pola `contractor` nie ma w odpowiedzi, a `$item->contractor` jest
+`null` - "nie pytano" od "kontrahenta nie ma" odróżnisz po
+`array_key_exists('contractor', $item->raw)`.
+
+## Wykrywanie usuniętych szans (API >= 2.17.0)
+
+CRM kasuje szanse bez śladu, więc usunięcie widać tylko jako brak rekordu. Filtry
+po liczbie całkowitej przyjmują listę do 100 wartości - paczka znanych id jednym
+zapytaniem:
+
+```php
+use TillioCrm\Api\QueryBuilder;
+
+$known = [6, 7, 9];   // id szans zapamiętane po swojej stronie
+$deleted = [];
+foreach (array_chunk($known, QueryBuilder::MAX_LIST_VALUES) as $chunk) {
+    $found = [];
+    foreach ($client->pipelineItems()->list(['id' => $chunk, 'limit' => QueryBuilder::MAX_LIST_VALUES]) as $item) {
+        $found[] = $item->id;
+    }
+    array_push($deleted, ...array_diff($chunk, $found));
+}
+// $deleted - szanse usunięte w CRM (także te ze statusem "Usunięta", które znikają z listy)
+```
+
+## Notatka pod szansą (API >= 2.17.0)
+
+```php
+use TillioCrm\Api\Dto\NoteInput;
+
+// Kontrahenta API bierze z szansy - notatka wisi na nim i jest przypięta do szansy
+// (w odczycie Note::$pipelineId). pipelineItemId w NoteInput to 422: szansę wskazuje
+// ścieżka. Szansa usunięta = NotFoundException.
+$result = $client->pipelineItems()->createNote(6, new NoteInput(
+    noteTypeId: 1,
+    title: 'Konflikt blokady',
+    body: '<p>Firma zablokowana przez innego partnera do 30.10.</p>',
+));
+
+// Odczyt notatek szans - także paczką id.
+$client->notes()->list(['pipelineId' => [6, 7]]);
+```

@@ -11,15 +11,32 @@ namespace TillioCrm\Api\Dto;
  * Inne encje wskazują szansę różnymi nazwami pól: `pipelineId` (Note),
  * `pipelineItemId` (TaskInput), `salesPipelineId` (Lead, GeneratedDocument) -
  * wszystkie znaczą id pozycji lejka.
+ *
+ * `contractor` przychodzi WYŁĄCZNIE przy `include=contractor` (API >= 2.17.0,
+ * `pipelineItems()->list(['include' => 'contractor'])` albo
+ * `get($id, include: ['contractor'])`). Bez tego parametru jest tu zawsze `null`,
+ * a klucza `contractor` nie ma w `$raw` - po nim odróżnisz "nie pytano" od
+ * "kontrahenta już nie ma w CRM" (`array_key_exists('contractor', $item->raw)`).
  */
 final readonly class PipelineItem
 {
     /**
-     * @param array<string, mixed> $customField wartości pól niestandardowych
-     * @param list<int>            $contactIds  kontakty przypięte do szansy, w kolejności z panelu;
-     *                                          zawsze osoby kontrahenta szansy. Zapis przez
-     *                                          `PipelineItemInput::$contactIds` (od API 2.15.0)
-     * @param array<string, mixed> $raw         pełny rekord z API
+     * @param array<string, mixed> $customField      wartości pól niestandardowych
+     * @param list<int>            $contactIds       kontakty przypięte do szansy, w kolejności z panelu;
+     *                                               zawsze osoby kontrahenta szansy. Zapis przez
+     *                                               `PipelineItemInput::$contactIds` (od API 2.15.0)
+     * @param int|null             $pipelineFunnelId lejek szansy (`dictionaries()->pipelineFunnels()`) -
+     *                                               wynika z etapu i zmienia się razem z nim
+     *                                               (`changeStage()`); tylko odczyt i filtr listy
+     *                                               `pipelineFunnelId` (od API 2.17.0)
+     * @param string|null          $url              adres karty szansy w CRM - do powiadomień i linków
+     *                                               "otwórz w CRM" (od API 2.17.0, także w
+     *                                               `WriteResult::$data` po zapisie). Karta otwiera się
+     *                                               jako okno nad widokiem lejka, stąd kotwica w adresie
+     * @param Contractor|null      $contractor       kontrahent szansy w kształcie z `contractors()->list()`
+     *                                               (z `customField`, bez `address`) - tylko przy
+     *                                               `include=contractor` (od API 2.17.0), patrz opis klasy
+     * @param array<string, mixed> $raw              pełny rekord z API
      */
     public function __construct(
         public int $id,
@@ -43,6 +60,9 @@ final readonly class PipelineItem
         public ?string $updatedAt,
         public array $customField,
         public array $contactIds,
+        public ?int $pipelineFunnelId,
+        public ?string $url,
+        public ?Contractor $contractor,
         public array $raw = [],
     ) {
     }
@@ -74,6 +94,9 @@ final readonly class PipelineItem
             updatedAt: Cast::string($row['updatedAt'] ?? null),
             customField: Cast::map($row['customField'] ?? null),
             contactIds: Cast::intList($row['contactIds'] ?? null),
+            pipelineFunnelId: Cast::int($row['pipelineFunnelId'] ?? null),
+            url: Cast::string($row['url'] ?? null),
+            contractor: is_array($row['contractor'] ?? null) ? Contractor::fromArray(Cast::map($row['contractor'])) : null,
             raw: $row,
         );
     }

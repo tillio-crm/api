@@ -7,6 +7,9 @@ namespace TillioCrm\Api\Tests;
 use PHPUnit\Framework\TestCase;
 use TillioCrm\Api\Dto\CategoryInput;
 use TillioCrm\Api\Dto\CustomFieldInput;
+use TillioCrm\Api\Dto\CustomFieldOptionInput;
+use TillioCrm\Api\Dto\CustomFieldUpdateInput;
+use TillioCrm\Api\Dto\CustomFieldUpdateResult;
 use TillioCrm\Api\Dto\DictionaryEntry;
 use TillioCrm\Api\Dto\DictionaryEntryInput;
 use TillioCrm\Api\Dto\DocumentTypeInput;
@@ -16,6 +19,7 @@ use TillioCrm\Api\Dto\MailTemplateInput;
 use TillioCrm\Api\Dto\PipelineFunnelInput;
 use TillioCrm\Api\Dto\ProcessStageInput;
 use TillioCrm\Api\Exception\TransportException;
+use TillioCrm\Api\Exception\ValidationException;
 use TillioCrm\Api\Tests\Support\FakeClock;
 use TillioCrm\Api\Tests\Support\MockTransport;
 use TillioCrm\Api\TillioClient;
@@ -193,6 +197,101 @@ final class MiscResourcesTest extends TestCase
 
         $client->customFields()->update('contractor', 'contractor_str_3', ['assignedTo' => [7, 7]]);
         self::assertSame('v2/contractor/custom-fields/contractor_str_3', $this->transport->lastRequest()->path);
+    }
+
+    public function testCustomFieldAppendOptionsSendsNamesAndColorsAndMapsResult(): void
+    {
+        // Kontrakt 2.17.0: options to stringi albo {name, color?}; odpowiedź niesie
+        // KOMPLET opcji po zapisie z id (`value`) do zapisu i filtrów.
+        $this->transport->queueJson(200, '{"data":{"key":"leads_select_3","assignedTo":[1,2],"options":[{"value":1,"name":"Formularz","color":"#ffffff"},{"value":2,"name":"Facebook Lead Ads","color":"#ffffff"},{"value":3,"name":"Polecenie","color":"#00aa00"}]}}');
+
+        $field = $this->client()->customFields()->appendOptions('lead', 'leads_select_3', [
+            'Facebook Lead Ads',
+            new CustomFieldOptionInput('Polecenie', '#00aa00'),
+        ]);
+
+        $request = $this->transport->lastRequest();
+        self::assertSame('PUT', $request->method);
+        self::assertSame('v2/lead/custom-fields/leads_select_3', $request->path);
+        self::assertSame(['options' => ['Facebook Lead Ads', ['name' => 'Polecenie', 'color' => '#00aa00']]], $request->body);
+
+        self::assertSame('leads_select_3', $field->key);
+        self::assertSame([1, 2], $field->assignedTo);
+        self::assertNotNull($field->options);
+        self::assertCount(3, $field->options);
+        self::assertSame(3, $field->optionValue('Polecenie'));
+        self::assertSame(2, $field->optionValue(' Facebook Lead Ads '));
+        self::assertNull($field->optionValue('Nieznana'));
+        self::assertSame('#00aa00', $field->options[2]->color);
+    }
+
+    public function testCustomFieldAppendOptionsOnEntityWithoutSubtypesHasNullAssignedTo(): void
+    {
+        // assignedTo przychodzi tylko dla encji z podtypami - kontrahent ich nie ma.
+        $this->transport->queueJson(200, '{"data":{"key":"contractor_select_1","options":[{"value":1,"name":"TAK","color":null}]}}');
+
+        $field = $this->client()->customFields()->appendOptions('contractor', 'contractor_select_1', ['TAK']);
+
+        self::assertNull($field->assignedTo);
+        self::assertSame(1, $field->optionValue('TAK'));
+        self::assertNotNull($field->options);
+        self::assertNull($field->options[0]->color);
+    }
+
+    public function testCustomFieldUpdateAcceptsDtoWithAllAndOptions(): void
+    {
+        // "all" = wszystkie podtypy istniejące w chwili zapisu; razem z options
+        // jednym żądaniem. Wynik typowany z WriteResult::$data.
+        $this->transport->queueJson(200, '{"data":{"key":"salespipeline_select_1","assignedTo":[3,4,5],"options":[{"value":1,"name":"TAK","color":null}]}}');
+
+        $result = $this->client()->customFields()->update('pipeline', 'salespipeline_select_1', new CustomFieldUpdateInput(
+            assignedTo: 'all',
+            options: ['TAK'],
+        ));
+
+        self::assertSame(['assignedTo' => 'all', 'options' => ['TAK']], $this->transport->lastRequest()->body);
+        self::assertNull($result->id);
+        $field = CustomFieldUpdateResult::fromArray($result->data);
+        self::assertSame([3, 4, 5], $field->assignedTo);
+        self::assertSame(1, $field->optionValue('TAK'));
+    }
+
+    public function testCustomFieldUpdateInputSendsOnlyGivenFields(): void
+    {
+        self::assertSame(
+            ['assignedTo' => [3, 4], 'allowUnassign' => true],
+            (new CustomFieldUpdateInput(assignedTo: [3, 4], allowUnassign: true))->toArray(),
+        );
+        self::assertSame([], (new CustomFieldUpdateInput())->toArray());
+    }
+
+    public function testCustomFieldOptionsNotForSelectSurfaceAsValidationError(): void
+    {
+        $this->transport->queueJson(422, '{"_error":{"code":422,"message":"validation.error","errors":[{"field":"options","code":"body.invalidValue","message":"Opcje ma wyłącznie pole typu SELECT albo MULTISELECT."}]}}');
+
+        try {
+            $this->client()->customFields()->appendOptions('contractor', 'contractor_str_2', ['TAK']);
+            self::fail('Oczekiwano ValidationException.');
+        } catch (ValidationException $e) {
+            self::assertCount(1, $e->errorsForField('options'));
+        }
+    }
+
+    public function testCustomFieldCreateAcceptsAllAndColoredOptions(): void
+    {
+        self::assertSame([
+            'entity' => 'pipeline',
+            'name' => 'Partner',
+            'type' => 'SELECT',
+            'options' => ['TAK', ['name' => 'NIE', 'color' => '#ff0000']],
+            'assignedTo' => 'all',
+        ], (new CustomFieldInput(
+            entity: 'pipeline',
+            name: 'Partner',
+            type: 'SELECT',
+            options: ['TAK', new CustomFieldOptionInput('NIE', '#ff0000')],
+            assignedTo: 'all',
+        ))->toArray());
     }
 
     public function testGetFieldFileReturnsDtoOrNull(): void

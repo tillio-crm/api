@@ -21,6 +21,10 @@ final readonly class Lead
      * @param list<int>            $leadTagIds  tagi leada (słownik `dictionaries()->leadTags()`),
      *                                          priorytet malejąco; zapis przez `LeadInput::$leadTagIds`
      *                                          (od API 2.15.0)
+     * @param string|null          $url         adres karty leada w CRM - do powiadomień i linków
+     *                                          "otwórz w CRM" (od API 2.17.0, także w `WriteResult::$data`
+     *                                          po zapisie). Karta otwiera się jako okno nad listą leadów,
+     *                                          stąd kotwica w adresie - nie sklejaj go samodzielnie
      * @param array<string, mixed> $raw         pełny rekord z API
      */
     public function __construct(
@@ -61,6 +65,7 @@ final readonly class Lead
         public array $customField,
         public array $emails,
         public array $leadTagIds,
+        public ?string $url,
         public array $raw = [],
     ) {
     }
@@ -108,6 +113,7 @@ final readonly class Lead
             customField: Cast::map($row['customField'] ?? null),
             emails: Cast::stringList($row['emails'] ?? null),
             leadTagIds: Cast::intList($row['leadTagIds'] ?? null),
+            url: Cast::string($row['url'] ?? null),
             raw: $row,
         );
     }

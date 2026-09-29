@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace TillioCrm\Api\Resources;
 
 use TillioCrm\Api\Dto\Cast;
+use TillioCrm\Api\Dto\NoteInput;
 use TillioCrm\Api\Dto\PipelineItem;
 use TillioCrm\Api\Dto\PipelineItemInput;
 use TillioCrm\Api\Dto\WriteResult;
@@ -19,16 +20,28 @@ final readonly class PipelineItems extends Resource
     /**
      * `GET /v2/pipeline/items` - strona listy.
      *
+     *     // Paczka znanych szans z kontrahentami - jedno zapytanie zamiast GET na każdą.
+     *     $page = $client->pipelineItems()->list(['id' => [6, 7, 9], 'include' => 'contractor']);
+     *
      * Filtry (komplet wg kontraktu): `contractorId`, `contactId` (szanse
      * z tym kontaktem przypiętym), `pipelineStageId`,
      * `pipelineStatusId` (etapy i statusy z lejków: `dictionaries()->pipelineFunnels()`),
-     * `ownerUserId`, `name`, `id`, `creatorUserId`, `closerUserId`, `currency`,
-     * `probability`, `note`, `externalId`, `leadId`, `updatedAfter`/`updatedBefore`,
-     * `createdAfter`/`createdBefore`, `customField[klucz]`, `sort`/`sortDir`,
-     * `page`/`limit`.
+     * `pipelineFunnelId` (lejek), `ownerUserId`, `name`, `id`, `creatorUserId`,
+     * `closerUserId`, `currency`, `probability`, `note`, `externalId`, `leadId`,
+     * `updatedAfter`/`updatedBefore`, `createdAfter`/`createdBefore`,
+     * `customField[klucz]`, `include=contractor` (kontrahent szansy osadzony
+     * w `PipelineItem::$contractor`, dla całej strony jednym zapytaniem),
+     * `sort`/`sortDir`, `page`/`limit`.
      *
-     * `contactId` wymaga API >= 2.15.0 - starsza instancja odrzuci nieznany
-     * parametr błędem 400.
+     * Filtry po liczbie całkowitej (`id`, `contractorId`, `leadId`, `ownerUserId`,
+     * `pipelineFunnelId`...) przyjmują od API 2.17.0 listę do 100 wartości:
+     * `['id' => [6, 7, 9]]`. Id nieobecne w odpowiedzi = szansy już nie ma
+     * (CRM kasuje szanse bez śladu, a szansa ze statusem "Usunięta" też znika
+     * z listy) - to jedyny sposób na wykrycie usunięcia.
+     *
+     * `contactId` wymaga API >= 2.15.0, `pipelineFunnelId`, `include` i listy
+     * wartości - API >= 2.17.0. Starsza instancja odrzuci nieznany parametr albo
+     * listę błędem 400.
      *
      * @param array<string, mixed> $filters
      *
@@ -40,7 +53,9 @@ final readonly class PipelineItems extends Resource
     }
 
     /**
-     * Pełny przebieg wszystkich stron (generator, wymuszone `sort=id`).
+     * Pełny przebieg wszystkich stron (generator, wymuszone `sort=id`). Filtry
+     * jak w {@see list()}, także `include=contractor` - kontrahenci dociągani
+     * są wtedy jednym zapytaniem na stronę.
      *
      * @param array<string, mixed> $filters
      *
@@ -53,10 +68,21 @@ final readonly class PipelineItems extends Resource
 
     /**
      * `GET /v2/pipeline/items/{id}` - pojedyncza szansa.
+     *
+     *     $item = $client->pipelineItems()->get(6, include: ['contractor']);
+     *     $item->contractor?->taxId;
+     *
+     * @param list<string> $include dane powiązane (API >= 2.17.0): `contractor` -
+     *                              kontrahent szansy w `PipelineItem::$contractor`.
+     *                              Pusta lista = bez parametru (jak dotąd); nieznana
+     *                              wartość albo starsza instancja = 400
      */
-    public function get(int $id): PipelineItem
+    public function get(int $id, array $include = []): PipelineItem
     {
-        return PipelineItem::fromArray(self::single($this->client->get('v2/pipeline/items/' . $id)));
+        return PipelineItem::fromArray(self::single($this->client->get(
+            'v2/pipeline/items/' . $id,
+            $include === [] ? [] : ['include' => $include],
+        )));
     }
 
     /**
@@ -135,6 +161,31 @@ final readonly class PipelineItems extends Resource
         return WriteResult::fromResponse(
             $this->client->post(sprintf('v2/pipeline/items/%d/status', $id), $payload),
             'pipelineItemId',
+        );
+    }
+
+    /**
+     * `POST /v2/pipeline/items/{pipelineItemId}/notes` - notatka pod szansą bez
+     * podawania kontrahenta (API >= 2.17.0): API bierze go z szansy. Wynik jest
+     * taki sam jak `notes()->create($contractorId, ...)` z `pipelineItemId` -
+     * notatka wisi na kontrahencie szansy (`contractorId`) i jest przypięta do
+     * szansy (w odczycie `Note::$pipelineId`); odczyt: `notes()->list(['pipelineId' => $id])`.
+     *
+     *     $client->pipelineItems()->createNote(6, new NoteInput(noteTypeId: 1, title: 'Konflikt blokady'));
+     *
+     * Wymagane `noteTypeId` i `title`. `contactIds` i `serviceId` muszą należeć
+     * do kontrahenta szansy (inaczej 422 na tym polu); `pipelineItemId`
+     * w `NoteInput` to 422 - szansę wskazuje ścieżka. Szansa nieistniejąca albo
+     * usunięta = `NotFoundException` (404 `pipelineItem.notFound`). Wymaga
+     * uprawnień do notatek (i do kontaktów przy `contactIds`).
+     *
+     * @param NoteInput|array<string, mixed> $input
+     */
+    public function createNote(int $pipelineItemId, NoteInput|array $input): WriteResult
+    {
+        return WriteResult::fromResponse(
+            $this->client->post(sprintf('v2/pipeline/items/%d/notes', $pipelineItemId), self::payload($input)),
+            'noteId',
         );
     }
 }

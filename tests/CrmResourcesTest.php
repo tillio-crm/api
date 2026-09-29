@@ -24,6 +24,7 @@ use TillioCrm\Api\Dto\TicketMessageInput;
 use TillioCrm\Api\Dto\UserInput;
 use TillioCrm\Api\Dto\WriteOptions;
 use TillioCrm\Api\Exception\IncompleteDuplicateCheckException;
+use TillioCrm\Api\Exception\NotFoundException;
 use TillioCrm\Api\Exception\TransportException;
 use TillioCrm\Api\Exception\ValidationException;
 use TillioCrm\Api\Tests\Support\FakeClock;
@@ -480,6 +481,172 @@ final class CrmResourcesTest extends TestCase
         $this->client()->pipelineItems()->changeStatus(6, 1);
 
         self::assertSame(['pipelineStatusId' => 1], $this->transport->lastRequest()->body);
+    }
+
+    public function testPipelineItemReadsFunnelUrlAndEmbeddedContractor(): void
+    {
+        // Kontrakt 2.17.0: lejek, link do karty i kontrahent z include=contractor
+        // w kształcie z listy kontrahentów (z customField, bez address).
+        $this->transport->queueJson(200, (string) json_encode(['data' => [
+            'id' => 6,
+            'name' => 'Oferta',
+            'contractorId' => 121,
+            'pipelineStageId' => 5,
+            'pipelineFunnelId' => 2,
+            'url' => 'https://firma.tillio.app/crm/pipeline/view/table#/modal=pipeline-deal-read/dealId:6',
+            'contractor' => [
+                'id' => 121,
+                'name' => 'Acme',
+                'taxId' => '5260250995',
+                'email' => 'biuro@acme.example',
+                'customField' => ['partner_flag' => 3],
+                'url' => 'https://firma.tillio.app/crm/contractor/121',
+            ],
+        ]]));
+
+        $item = $this->client()->pipelineItems()->get(6, include: ['contractor']);
+
+        $request = $this->transport->lastRequest();
+        self::assertSame('v2/pipeline/items/6', $request->path);
+        self::assertSame(['include' => 'contractor'], $request->query);
+        self::assertSame(2, $item->pipelineFunnelId);
+        self::assertSame('https://firma.tillio.app/crm/pipeline/view/table#/modal=pipeline-deal-read/dealId:6', $item->url);
+        self::assertNotNull($item->contractor);
+        self::assertSame(121, $item->contractor->id);
+        self::assertSame('5260250995', $item->contractor->taxId);
+        self::assertSame(['partner_flag' => 3], $item->contractor->customField);
+        self::assertSame([], $item->contractor->address);
+    }
+
+    public function testPipelineItemWithoutIncludeHasNoContractorAndNoQuery(): void
+    {
+        // Bez include pola `contractor` NIE MA w odpowiedzi; `null` w include
+        // znaczy "kontrahenta już nie ma" - rozróżnia to klucz w $raw.
+        $this->transport
+            ->queueJson(200, '{"data":{"id":6,"pipelineFunnelId":null,"url":null}}')
+            ->queueJson(200, '{"data":{"id":7,"contractor":null}}');
+
+        $client = $this->client();
+
+        $plain = $client->pipelineItems()->get(6);
+        self::assertSame([], $this->transport->lastRequest()->query);
+        self::assertNull($plain->contractor);
+        self::assertNull($plain->pipelineFunnelId);
+        self::assertNull($plain->url);
+        self::assertArrayNotHasKey('contractor', $plain->raw);
+
+        $orphan = $client->pipelineItems()->get(7, include: ['contractor']);
+        self::assertNull($orphan->contractor);
+        self::assertArrayHasKey('contractor', $orphan->raw);
+    }
+
+    public function testPipelineItemListSendsIdListFunnelAndInclude(): void
+    {
+        // Paczka znanych szans jednym zapytaniem (API 2.17.0): id nieobecne
+        // w odpowiedzi = szansa usunięta w CRM.
+        $this->transport->queueJson(200, '{"data":[{"id":6,"contractor":{"id":121,"name":"Acme"}}],"pagination":{"page":1,"limit":100,"total":1,"pages":1}}');
+
+        $page = $this->client()->pipelineItems()->list([
+            'id' => [6, 7, 9],
+            'pipelineFunnelId' => 2,
+            'include' => 'contractor',
+            'limit' => 100,
+        ]);
+
+        self::assertSame(
+            ['id' => '6,7,9', 'pipelineFunnelId' => '2', 'include' => 'contractor', 'limit' => '100'],
+            $this->transport->lastRequest()->query,
+        );
+        $found = array_map(static fn ($item): int => $item->id, $page->rows);
+        self::assertSame([7, 9], array_values(array_diff([6, 7, 9], $found)));
+        self::assertSame('Acme', $page->rows[0]->contractor?->name);
+    }
+
+    public function testPipelineItemIterateCarriesIncludeOnEveryPage(): void
+    {
+        $this->transport
+            ->queueJson(200, '{"data":[{"id":6,"contractor":{"id":121}}],"pagination":{"page":1,"limit":1,"total":2,"pages":2}}')
+            ->queueJson(200, '{"data":[{"id":7,"contractor":null}],"pagination":{"page":2,"limit":1,"total":2,"pages":2}}');
+
+        $items = iterator_to_array($this->client()->pipelineItems()->iterate(['include' => 'contractor', 'ownerUserId' => [7, 8]], 1), false);
+
+        self::assertCount(2, $items);
+        foreach ($this->transport->requests as $request) {
+            self::assertSame('contractor', $request->query['include']);
+            self::assertSame('7,8', $request->query['ownerUserId']);
+            self::assertSame('id', $request->query['sort']);
+        }
+        self::assertSame(121, $items[0]->contractor?->id);
+        self::assertNull($items[1]->contractor);
+    }
+
+    public function testPipelineItemCreateNotePostsUnderPipelineItem(): void
+    {
+        // Kontrahenta API bierze z szansy - w body go nie ma, a pipelineItemId
+        // wskazuje ścieżka.
+        $this->transport->queueJson(201, '{"data":{"id":905,"contractorId":121,"pipelineId":6},"info":{"created":true,"ids":{"noteId":905}}}');
+
+        $result = $this->client()->pipelineItems()->createNote(6, new NoteInput(
+            noteTypeId: 1,
+            title: 'Konflikt blokady',
+            body: '<p>Firma zablokowana do 30.10.</p>',
+            contactIds: [50],
+        ));
+
+        $request = $this->transport->lastRequest();
+        self::assertSame('POST', $request->method);
+        self::assertSame('v2/pipeline/items/6/notes', $request->path);
+        self::assertSame([
+            'noteTypeId' => 1,
+            'title' => 'Konflikt blokady',
+            'body' => '<p>Firma zablokowana do 30.10.</p>',
+            'contactIds' => [50],
+        ], $request->body);
+        self::assertTrue($result->created);
+        self::assertSame(905, $result->id);
+        self::assertSame(121, $result->data['contractorId']);
+    }
+
+    public function testPipelineItemCreateNoteOnDeletedItemIsNotFound(): void
+    {
+        $this->transport->queueJson(404, '{"_error":{"code":404,"message":"pipelineItem.notFound"}}');
+
+        try {
+            $this->client()->pipelineItems()->createNote(999, new NoteInput(noteTypeId: 1, title: 'X'));
+            self::fail('Oczekiwano NotFoundException.');
+        } catch (NotFoundException $e) {
+            self::assertSame('pipelineItem.notFound', $e->errorCode);
+        }
+    }
+
+    public function testLeadReadsUrl(): void
+    {
+        $this->transport->queueJson(200, '{"data":{"id":659,"title":"Zapytanie","url":"https://firma.tillio.app/leads/view/table#/modal=lead-read/leadId:659"}}');
+
+        $lead = $this->client()->leads()->get(659);
+
+        self::assertSame('https://firma.tillio.app/leads/view/table#/modal=lead-read/leadId:659', $lead->url);
+    }
+
+    public function testNotesListAcceptsLeadIdList(): void
+    {
+        // Notatki paczki leadów jednym zapytaniem zamiast GET na każdego (API 2.17.0).
+        $this->transport->queueJson(200, '{"data":[],"pagination":{"page":1,"limit":100,"total":0,"pages":0}}');
+
+        $this->client()->notes()->list(['leadId' => [659, 660]]);
+
+        self::assertSame(['leadId' => '659,660'], $this->transport->lastRequest()->query);
+    }
+
+    public function testEmptyCustomFieldIsSentAsIs(): void
+    {
+        // Od API 2.17.0 pusty customField przechodzi także przy encji bez pól
+        // niestandardowych - SDK go nie zdejmuje i nie zamienia (null = pomiń pole).
+        $this->transport->queueJson(201, '{"data":{"id":905},"info":{"created":true,"ids":{"noteId":905}}}');
+
+        $this->client()->notes()->create(121, new NoteInput(noteTypeId: 1, title: 'X', customField: []));
+
+        self::assertSame(['noteTypeId' => 1, 'title' => 'X', 'customField' => []], $this->transport->lastRequest()->body);
     }
 
     public function testServiceCatalogAndGroups(): void

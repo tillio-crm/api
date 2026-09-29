@@ -63,6 +63,7 @@ Odczyt (`Lead`, `src/Dto/Lead.php`) niesie pola, których `LeadInput` NIE przyjm
 | `contactId` | ?int | osoba kontaktowa (kartoteka), jeśli powiązano |
 | `salesPipelineId` | ?int | id szansy sprzedaży utworzonej z leada (patrz playbook pipeline-items) |
 | `leadTagIds` | list<int> | tagi leada, priorytet malejąco (to samo pole przyjmuje zapis) |
+| `url` | ?string | link "otwórz w CRM" do karty leada (API >= 2.17.0, także w `->data` po zapisie) - do powiadomień dla ludzi; nie sklejaj adresu sam |
 | `closedAt`, `lastActivityAt`, `updatedAt` | ?string | znaczniki czasu z cyklu życia leada |
 
 ## Model danych w skrócie
@@ -370,6 +371,20 @@ Dostępne filtry (komplet wg kontraktu): `leadStatusId`, `leadStageId`,
 wymagają API >= 2.15.0). Do pełnego przebiegu
 wszystkich stron użyj `iterate()` (wymusza `sort=id`, nie gubi rekordów - patrz
 [queries](../queries/README.md)).
+
+Filtry id (`id`, `ownerUserId`, `leadStatusId`, `contractorId`...) przyjmują od
+API 2.17.0 listę do 100 wartości (`leadTagId` zostaje pojedynczy). Tak sprawdzisz,
+czy znane leady jeszcze istnieją - CRM kasuje leady bez śladu, więc id nieobecne
+w odpowiedzi oznacza usuniętego leada:
+
+```php
+$known = [659, 660, 702];
+$found = [];
+foreach ($client->leads()->list(['id' => $known, 'limit' => 100]) as $lead) {
+    $found[] = $lead->id;
+}
+$deleted = array_diff($known, $found);   // do 100 id na zapytanie - większe zbiory dziel array_chunk()
+```
 
 ### Zmiana opiekuna albo danych istniejącego leada
 

@@ -3,7 +3,8 @@
 Realizacja poleceń użytkownika dotyczących szans sprzedaży (pozycji w lejkach):
 zakładanie szansy dla kontrahenta, kwota i waluta, lejek i etap, opiekun,
 prawdopodobieństwo, przypięte kontakty, przesuwanie po etapach, zamykanie
-(wygrana/stracona), odczyt i filtry. Pisane dla asystenta AI - zakłada wspólne
+(wygrana/stracona), notatka pod szansą, odczyt z kontrahentem, filtry i wykrywanie
+usuniętych szans. Pisane dla asystenta AI - zakłada wspólne
 wzorce z [ai_integration.md](../ai_integration.md) (zwłaszcza `resolveUserId()`,
 `findByName()`, opis `WriteResult` i "Złotą zasadę: nie zgaduj id").
 
@@ -41,6 +42,9 @@ Odczyt (`PipelineItem`, `src/Dto/PipelineItem.php`) niesie pola, których
 | `externalId` | ?string | identyfikator z systemu zewnętrznego |
 | `leadId` | ?int | lead, z którego powstała szansa (patrz playbook leads) |
 | `contactIds` | list<int> | kontakty przypięte do szansy, w kolejności z panelu (to samo pole przyjmuje zapis) |
+| `pipelineFunnelId` | ?int | lejek szansy (API >= 2.17.0) - wynika z etapu i zmienia się razem z nim (`changeStage()`); też filtr listy. Nie trzeba go już wyliczać z `pipelineFunnels()` |
+| `url` | ?string | link "otwórz w CRM" do karty szansy (API >= 2.17.0) - do powiadomień dla ludzi; nie sklejaj adresu sam |
+| `contractor` | ?Contractor | kontrahent szansy (nazwa, NIP, telefon, e-mail, domena, `customField`), WYŁĄCZNIE przy `include=contractor` (API >= 2.17.0); bez tego parametru zawsze `null` |
 | `updatedAt` | ?string | znacznik ostatniej zmiany |
 
 ## Model danych w skrócie
@@ -56,9 +60,10 @@ Twoje dwa pierwsze kroki to zawsze zamiana nazwy kontrahenta na `contractorId`
 oraz nazwy etapu (w wybranym lejku) na `pipelineStageId`.
 
 Metody zasobu: `create(PipelineItemInput)`, `update(int $id, PipelineItemInput)`,
-`get(int $id)`, `list(array $filters)`, `iterate(array $filters)` oraz - od API
-2.15.0 - `changeStage(int $id, int $pipelineStageId)` i
-`changeStatus(int $id, int $pipelineStatusId, ?int $statusChangeReasonId, ?string $note)`.
+`get(int $id, array $include = [])`, `list(array $filters)`, `iterate(array $filters)`,
+od API 2.15.0 `changeStage(int $id, int $pipelineStageId)` i
+`changeStatus(int $id, int $pipelineStatusId, ?int $statusChangeReasonId, ?string $note)`,
+a od API 2.17.0 `createNote(int $pipelineItemId, NoteInput)` (notatka pod szansą).
 NIE ma metody `upsert` - szansa nie ma wbudowanego wykrywania duplikatów.
 
 ## Mapowanie intencji użytkownika na dane API
@@ -75,6 +80,9 @@ NIE ma metody `upsert` - szansa nie ma wbudowanego wykrywania duplikatów.
 | "przypnij do szansy Jana Kowalskiego" | `contactIds` | `contacts()->list(['contractorId' => ..., 'lastName' => 'Kowalski'])`; w `update()` podaj KOMPLET kontaktów |
 | "przesuń na etap Negocjacje" | `changeStage($id, $stageId)` | etap z `pipelineFunnels()`; NIE przez `update()` |
 | "wygrana" / "straciliśmy, bo cena" | `changeStatus($id, 3)` / `changeStatus($id, 2, $reasonId, $note)` | powód z `pipelineStatusChangeReasons($statusId, $funnelId)` |
+| "dopisz notatkę do szansy" | `createNote($id, NoteInput)` | typ z `dictionaries()->noteTypes()`; kontrahenta NIE podajesz - API bierze go z szansy |
+| "szanse z lejka Sprzedaż" | filtr `pipelineFunnelId` | id lejka z `pipelineFunnels()` (API >= 2.17.0) |
+| "pokaż szanse z danymi firm" | `list(['include' => 'contractor'])` | kontrahent w `$item->contractor`, bez osobnego zapytania na szansę |
 
 ## Scenariusz flagowy: szansa dla kontrahenta w konkretnym lejku
 
@@ -167,11 +175,62 @@ foreach ($page as $item) {
 
 Dostępne filtry (komplet wg kontraktu): `contractorId`, `contactId` (szanse
 z tą osobą przypiętą, API >= 2.15.0), `pipelineStageId`, `pipelineStatusId`,
-`ownerUserId`, `name`, `id`, `creatorUserId`, `closerUserId`, `currency`,
-`probability`, `note`, `externalId`, `leadId`, `updatedAfter`/`updatedBefore`,
-`createdAfter`/`createdBefore`, `customField[klucz]`, `sort`/`sortDir`,
-`page`/`limit`. Do pełnego przebiegu wszystkich stron użyj `iterate()`
-(wymusza `sort=id` - patrz [queries](../queries/README.md)).
+`pipelineFunnelId` (lejek, API >= 2.17.0), `ownerUserId`, `name`, `id`,
+`creatorUserId`, `closerUserId`, `currency`, `probability`, `note`, `externalId`,
+`leadId`, `updatedAfter`/`updatedBefore`, `createdAfter`/`createdBefore`,
+`customField[klucz]`, `include=contractor` (API >= 2.17.0), `sort`/`sortDir`,
+`page`/`limit`. Filtry po liczbie całkowitej przyjmują od API 2.17.0 listę do 100
+wartości (`['ownerUserId' => [7, 8]]`). Do pełnego przebiegu wszystkich stron
+użyj `iterate()` (wymusza `sort=id` - patrz [queries](../queries/README.md)).
+
+### Szanse z danymi kontrahenta jednym zapytaniem (API >= 2.17.0)
+
+```php
+// include=contractor osadza kontrahenta (kształt z contractors()->list(): z customField,
+// bez adresów) w każdej szansie strony - bez osobnego contractors()->get() na szansę.
+foreach ($client->pipelineItems()->iterate(['pipelineFunnelId' => 2, 'include' => 'contractor']) as $item) {
+    $company = $item->contractor;   // null = kontrahenta już nie ma w CRM
+    echo "#{$item->id} {$item->name} - " . ($company?->name ?? 'brak kontrahenta') . " ({$item->url})\n";
+}
+
+// Jedna szansa z kontrahentem.
+$item = $client->pipelineItems()->get(7, include: ['contractor']);
+```
+
+### Czy znane szanse jeszcze istnieją (API >= 2.17.0)
+
+CRM kasuje szanse bez śladu, więc usunięcie widać wyłącznie jako brak rekordu
+w odpowiedzi. Sprawdzaj paczką id, nie `get()` po jednej (każde `get()` na
+usuniętej szansie to 404 i osobny round-trip):
+
+```php
+use TillioCrm\Api\QueryBuilder;
+
+$deleted = [];
+foreach (array_chunk($knownIds, QueryBuilder::MAX_LIST_VALUES) as $chunk) {
+    $found = [];
+    foreach ($client->pipelineItems()->list(['id' => $chunk, 'limit' => QueryBuilder::MAX_LIST_VALUES]) as $item) {
+        $found[] = $item->id;
+    }
+    array_push($deleted, ...array_diff($chunk, $found));
+}
+// Szansa ze statusem "Usunięta" też znika z listy - wynik jest spójny.
+```
+
+### Notatka pod szansą (API >= 2.17.0)
+
+```php
+use TillioCrm\Api\Dto\NoteInput;
+
+// Kontrahenta API bierze z szansy. Notatka wisi na nim i jest przypięta do szansy
+// (w odczycie Note::$pipelineId) - widać ją na osi czasu firmy i szansy.
+$result = $client->pipelineItems()->createNote(7, new NoteInput(
+    noteTypeId: findByName($client->dictionaries()->noteTypes(), 'Rozmowa telefoniczna'),
+    title:      'Ustalenia po demo',
+    body:       '<p>Klient prosi o ofertę na 20 licencji.</p>',
+));
+echo "Dodano notatke #{$result->id} do szansy #7.\n";
+```
 
 ### Przesunięcie szansy na inny etap (API >= 2.15.0)
 
@@ -283,7 +342,17 @@ Wszystkie znaczą id pozycji lejka, czyli `PipelineItem->id`.
   odczyt; przy zerze/wielu trafieniach dopytaj, nie wybieraj pierwszego z brzegu.
 - **Odczyt vs zapis.** `PipelineItem` (odczyt) ma pola nieobecne w input
   (`closerUserId`, `realCloseDate`, `lostReason`, `externalId`, `leadId`,
-  `updatedAt`) - ustawia je CRM.
+  `pipelineFunnelId`, `url`, `updatedAt`) - ustawia je CRM. Lejek zmienia się
+  wyłącznie razem z etapem (`changeStage()`).
+- **`contractor` tylko z `include=contractor`.** Bez tego parametru pole jest
+  zawsze `null` - nie wnioskuj z tego, że szansa nie ma kontrahenta. Starsza
+  instancja (< 2.17.0) odrzuci `include` błędem 400.
+- **Notatka pod szansą: bez `pipelineItemId` w `NoteInput`.** Szansę wskazuje
+  ścieżka `createNote($id, ...)`, a pole w body to 422. `contactIds` i `serviceId`
+  muszą należeć do kontrahenta szansy; usunięta szansa to `NotFoundException`.
+- **Lista id najwyżej 100 wartości.** Więcej, pusta lista albo element niebędący
+  liczbą - SDK rzuca `InvalidFilterException`, zanim żądanie wyjdzie. Dziel paczki
+  przez `array_chunk($ids, QueryBuilder::MAX_LIST_VALUES)`.
 - **`create()` zwraca `WriteResult`** (`->id`, `->created`, `->warnings`), nie
   samo id. Szczegóły: sekcja "Co zwracają zapisy" w
   [ai_integration.md](../ai_integration.md).

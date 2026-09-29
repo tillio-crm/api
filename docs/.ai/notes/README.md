@@ -21,9 +21,17 @@ Reszta jest opcjonalna: `body`, `pinned`, `noteDate`, `contactIds`, `serviceId`,
 
 Ten sam `NoteInput` przyjmują pozostałe kotwice notatki: pod osobą kontaktową
 `contacts()->createNote($contactId, ...)` (API >= 2.10.0, playbook
-[contacts](../contacts/README.md)) i pod leadem `leads()->createNote($leadId, ...)`
-(API >= 2.13.0, playbook [leads](../leads/README.md)). Notatka leada nie przyjmuje
-`contactIds`, `serviceId` ani `pipelineItemId` (422).
+[contacts](../contacts/README.md)), pod leadem `leads()->createNote($leadId, ...)`
+(API >= 2.13.0, playbook [leads](../leads/README.md)) i pod szansą sprzedaży
+`pipelineItems()->createNote($pipelineItemId, ...)` (API >= 2.17.0, playbook
+[pipeline-items](../pipeline-items/README.md)). Notatka leada nie przyjmuje
+`contactIds`, `serviceId` ani `pipelineItemId` (422). Notatka szansy nie wymaga
+kontrahenta - API bierze go z szansy, a wynik jest taki sam jak `create()`
+z `pipelineItemId`; samo `pipelineItemId` w `NoteInput` to tam 422 (szansę
+wskazuje ścieżka).
+
+Użytkownik mówi "dopisz notatkę do szansy X" i nie podaje firmy? Nie szukaj
+kontrahenta - wołaj `pipelineItems()->createNote()`.
 
 Pole `contactIds` (`list<int>`, API >= 2.8.0) przypina osoby kontaktowe od razu
 przy tworzeniu notatki. Przy notatce kontrahenta wolno wskazać wyłącznie kontakty

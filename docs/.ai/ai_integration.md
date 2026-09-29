@@ -210,6 +210,23 @@ Dla leadów i kontrahentów ten sam klucz podaje się dodatkowo jako
 `duplicateCheck: ['custom:zapier_id']` - wtedy sprawdzenie robi API w jednym
 żądaniu, a SDK pilnuje lokalnie, że wartość klucza faktycznie jest w payloadzie.
 
+### Wiele znanych rekordów: lista id, nie pętla `get()` (API >= 2.17.0)
+
+Masz id rekordów zapamiętane po swojej stronie (synchronizacja, poprzednia
+rozmowa)? Filtry po liczbie całkowitej przyjmują listę do 100 wartości - jedno
+zapytanie zamiast `get()` na każdy rekord. To też JEDYNY sposób, żeby zauważyć
+usunięcie: CRM kasuje leady i szanse bez śladu, więc id nieobecne w odpowiedzi
+oznacza rekord usunięty.
+
+```php
+$page = $client->pipelineItems()->list(['id' => [6, 7, 9], 'include' => 'contractor', 'limit' => 100]);
+$found = array_map(fn ($item) => $item->id, $page->rows);
+$deleted = array_diff([6, 7, 9], $found);   // tych szans już nie ma - nie próbuj ich aktualizować
+```
+
+Szczegóły (limit 100, dzielenie paczek, strażnik pustej listy):
+[queries/README.md](queries/README.md), Zasada 8.
+
 ### Normalizacja wejścia: co API poprawia, a co odrzuca
 
 API sprowadza dane do kanonu CRM po swojej stronie - nie normalizuj ich sam
@@ -256,6 +273,9 @@ Wszystkie błędy dziedziczą po `TillioApiException`. Reaguj według typu:
   pozycji mieszczą się z zapasem.
 - `IncompleteDuplicateCheckException` - SDK zatrzymał zapis LOKALNIE, bo pole
   z `duplicateCheck` nie miało wartości. Uzupełnij albo zdejmij pole.
+- `InvalidFilterException` - SDK zatrzymał zapytanie LOKALNIE: pusty string
+  w `customField[...]` (użyj `CustomFieldFilter::NotSet`) albo filtr-lista pusty,
+  dłuższy niż 100 wartości lub z elementem niebędącym liczbą. Popraw filtr.
 - `NotFoundException` (404) - złe id (mapowanie nieaktualne).
 - `RateLimitException` / `ServerException` / `TransportException` - SDK ponawia
   je sam; jeśli i tak doleciały, odpuść i zgłoś użytkownikowi.
@@ -287,7 +307,7 @@ z gotowym kodem, warianty i pułapki):
 | Kontakty | [contacts/README.md](contacts/README.md) | "dodaj osobę kontaktową", "podepnij kontakt do firmy" |
 | Notatki | [notes/README.md](notes/README.md) | "zapisz notatkę u kontrahenta", "dodaj notatkę z załącznikiem" |
 | Leady | [leads/README.md](leads/README.md) | "dodaj leada", "zarejestruj zapytanie z formularza bez dubla", "dopisz notatkę do leada", "zakwalifikuj leada" |
-| Szanse sprzedaży | [pipeline-items/README.md](pipeline-items/README.md) | "dodaj szansę w lejku", "przesuń na etap", "oznacz jako wygraną" |
+| Szanse sprzedaży | [pipeline-items/README.md](pipeline-items/README.md) | "dodaj szansę w lejku", "przesuń na etap", "oznacz jako wygraną", "dopisz notatkę do szansy" |
 | Zgłoszenia | [tickets/README.md](tickets/README.md) | "utwórz zgłoszenie", "dopisz wiadomość do ticketa" |
 | Projekty | [projects/README.md](projects/README.md) | "załóż projekt dla klienta" |
 | Usługi | [services/README.md](services/README.md) | "dodaj usługę kontrahentowi z katalogu" |

@@ -24,6 +24,13 @@ $result = $client->notes()->create(12345, new NoteInput(
     noteDate: '2026-08-27',
 ));
 
+// Pod szansą sprzedaży bez podawania kontrahenta - API bierze go z szansy
+// (API >= 2.17.0); pipelineItemId w NoteInput to tu 422, szansę wskazuje ścieżka
+$client->pipelineItems()->createNote(6, new NoteInput(noteTypeId: 1, title: 'Konflikt blokady'));
+
+// Notatki paczki leadów albo szans jednym zapytaniem (API >= 2.17.0, do 100 id)
+$client->notes()->list(['pipelineId' => [6, 7]]);
+
 // Aktualizacja
 $client->notes()->update($result->id ?? 0, new NoteInput(pinned: true));
 

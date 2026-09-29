@@ -71,4 +71,71 @@ final class QueryBuilderTest extends TestCase
     {
         self::assertSame([], QueryBuilder::build(['customField' => ['klucz' => null]]));
     }
+
+    public function testListFilterIsJoinedWithCommas(): void
+    {
+        // API 2.17.0 przyjmuje wiele id jako `?id=1,2,3`; zagnieżdżone `id[0]=1`
+        // byłoby dla v2 błędem 400. Duplikaty wypadają, kolejność zostaje.
+        self::assertSame(
+            ['id' => '12,15,18', 'ownerUserId' => '7', 'include' => 'contractor'],
+            QueryBuilder::build(['id' => [12, 15, 12, 18], 'ownerUserId' => [7], 'include' => ['contractor']]),
+        );
+    }
+
+    public function testListFilterAcceptsNumericStrings(): void
+    {
+        // Id z CSV albo bazy przychodzą często jako stringi - przechodzą bez rzutowania.
+        self::assertSame(['leadId' => '659,660'], QueryBuilder::build(['leadId' => ['659', 660]]));
+    }
+
+    public function testListFilterOverLimitThrowsBeforeSending(): void
+    {
+        $this->expectException(InvalidFilterException::class);
+        $this->expectExceptionMessage('najwyżej 100');
+        QueryBuilder::build(['id' => range(1, QueryBuilder::MAX_LIST_VALUES + 1)]);
+    }
+
+    public function testListFilterAtLimitPasses(): void
+    {
+        $query = QueryBuilder::build(['id' => range(1, QueryBuilder::MAX_LIST_VALUES)]);
+        self::assertSame(QueryBuilder::MAX_LIST_VALUES, substr_count((string) $query['id'], ',') + 1);
+    }
+
+    public function testDuplicatesDoNotCountTowardsLimit(): void
+    {
+        // API liczy limit po odrzuceniu powtórek - strażnik lokalny tak samo.
+        $ids = array_merge(range(1, QueryBuilder::MAX_LIST_VALUES), range(1, 20));
+        self::assertArrayHasKey('id', QueryBuilder::build(['id' => $ids]));
+    }
+
+    public function testEmptyListFilterThrows(): void
+    {
+        // Bez filtra zapytanie zwróciłoby WSZYSTKIE rekordy - pusta paczka id
+        // nie może po cichu zamienić się w pobranie całej bazy.
+        $this->expectException(InvalidFilterException::class);
+        $this->expectExceptionMessage('ownerUserId');
+        QueryBuilder::build(['ownerUserId' => []]);
+    }
+
+    public function testListElementMustBeIntOrPlainString(): void
+    {
+        $this->expectException(InvalidFilterException::class);
+        QueryBuilder::build(['id' => [1, 2.5]]);
+    }
+
+    public function testListElementWithCommaIsRejected(): void
+    {
+        // "1,2" w jednym elemencie rozjechałoby się z liczeniem limitu i duplikatów.
+        $this->expectException(InvalidFilterException::class);
+        QueryBuilder::build(['id' => ['1,2']]);
+    }
+
+    public function testCustomFieldMapIsNotTreatedAsList(): void
+    {
+        // Mapa `customField` zostaje zagnieżdżona - tylko lista (klucze 0..n) jest filtrem-listą.
+        self::assertSame(
+            ['customField' => ['erp_id' => 'OPT-1']],
+            QueryBuilder::build(['customField' => ['erp_id' => 'OPT-1']]),
+        );
+    }
 }

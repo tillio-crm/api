@@ -5,6 +5,72 @@ z perspektywy konsumenta SDK; wpisy grupowane per wydanie (przy 0.1.0 wszystko
 jest nowe, od kolejnych wydań sekcje Dodane/Zmienione/Naprawione).
 Wersjonowanie: semver (przed 1.0.0 zmiany łamiące = minor).
 
+## [Unreleased]
+
+Dostosowanie do kontraktu API 2.17.0: paczka znanych rekordów jednym
+zapytaniem (lista id w filtrze), szansa sprzedaży z kontrahentem, lejkiem
+i linkiem do karty, notatka pod szansą bez podawania kontrahenta, dopisywanie
+opcji do pól wyboru i przypisanie pola do wszystkich procesów albo lejków
+jednym słowem. Minor - nowe metody i pola, bez zmian łamiących.
+
+### Dodane
+
+- Filtry-listy na wszystkich listach (API >= 2.17.0): każdy filtr dokładny po
+  liczbie całkowitej (`id`, `contractorId`, `leadId`, `pipelineId`,
+  `ownerUserId` i pozostałe `*Id`) przyjmuje tablicę - `list(['id' => [12, 15, 18]])`
+  wychodzi jako `?id=12,15,18`. Tak sprawdzisz paczkę do 100 znanych rekordów
+  jednym zapytaniem zamiast `get()` na każdy, a id nieobecne w odpowiedzi
+  oznacza rekord usunięty w CRM (leady i szanse CRM kasuje bez śladu - innego
+  sposobu na wykrycie usunięcia nie ma). Pustą listę, więcej niż 100 wartości
+  (`QueryBuilder::MAX_LIST_VALUES`) i element, który nie jest liczbą całkowitą
+  ani tekstem bez przecinka, SDK odrzuca `InvalidFilterException`, zanim
+  żądanie wyjdzie - pusta lista bez filtra zwróciłaby wszystkie rekordy.
+  Duplikaty w liście wypadają. Tablicę przyjmuje też `include`.
+- `pipelineItems()->createNote($pipelineItemId, NoteInput)` -
+  `POST /v2/pipeline/items/{pipelineItemId}/notes` (API >= 2.17.0): notatka pod
+  szansą bez podawania kontrahenta, API bierze go z szansy. Wynik jak przy
+  notatce kontrahenta z `pipelineItemId` (w odczycie `Note::$pipelineId`);
+  `pipelineItemId` w `NoteInput` to tu 422, szansa usunięta albo nieistniejąca -
+  `NotFoundException`.
+- `PipelineItem`: `pipelineFunnelId` (lejek, wynika z etapu; także filtr listy),
+  `url` (link "otwórz w CRM" do karty szansy) i `contractor` - pełny kontrahent
+  (`Contractor`, z polami niestandardowymi, bez adresów) przy
+  `include=contractor`: `list(['include' => 'contractor'])`, `iterate()`
+  i nowy argument `get($id, include: ['contractor'])`. Kontrahenci całej strony
+  przychodzą jednym zapytaniem. Bez `include` pole jest `null`, a klucza nie ma
+  w `$raw`.
+- `Lead::$url` - link "otwórz w CRM" do karty leada (API >= 2.17.0).
+- `customFields()->appendOptions($entity, $key, $options)` - dopisanie opcji do
+  pola SELECT albo MULTISELECT dowolnej encji (API >= 2.17.0). Nazwy już obecne
+  API pomija, istniejące opcje zostają bez zmian, więc pełną listę oczekiwanych
+  opcji można wysyłać przy każdej synchronizacji. Zwraca nowe DTO
+  `CustomFieldUpdateResult` (`key`, `assignedTo`, `options` jako lista
+  `CustomFieldOption` z `value`, `name`, `color`) z pomocnikiem
+  `optionValue($nazwa)` - id opcji do zapisu w `customField` i filtrów.
+- `CustomFieldOptionInput` (nazwa i kolor opcji) oraz `CustomFieldUpdateInput`
+  (`assignedTo`, `allowUnassign`, `options`) - typowane wejście zmiany pola.
+
+### Zmienione
+
+- `customFields()->update()` przyjmuje `CustomFieldUpdateInput` obok tablicy
+  i przepuszcza `options` (dopisanie opcji razem ze zmianą przypisań). Od API
+  2.17.0 `assignedTo` nie jest wymagane, gdy są `options`; input bez obu to 422
+  `body.required`, a `assignedTo` przy encji bez podtypów - 422. Metoda nadal
+  zwraca `WriteResult`; typowany widok odpowiedzi daje
+  `CustomFieldUpdateResult::fromArray($result->data)`.
+- `assignedTo` przyjmuje `'all'` - wszystkie podtypy (procesy leadów, lejki,
+  typy notatek...) istniejące w chwili zapisu - w `CustomFieldInput` (zakładanie
+  pola) i w `update()` (API >= 2.17.0). Podtypu założonego później CRM sam nie
+  dopnie: powtórz `update()` z `'all'`, lista tylko urośnie.
+- `CustomFieldInput::$options` przyjmuje obok nazw `CustomFieldOptionInput`
+  z kolorem - kontrakt `POST /v2/custom-fields` dopuszcza obiekty
+  `{name, color}`, a DTO dotąd przepuszczało tylko stringi.
+- Pusty `customField` (`[]`) w zapisie encji bez pól niestandardowych nie jest
+  już odrzucany przez API 2.17.0. SDK wysyłał go zawsze bez zmian (pomija tylko
+  `null`), więc po stronie SDK nic nie trzeba obchodzić.
+- Mapa tras zweryfikowana 1:1 z kontraktem API **2.17.0** (242 -> **243 trasy**:
+  notatka pod szansą sprzedaży).
+
 ## [0.4.0] - 2026-09-18
 
 Wydanie z dostosowaniem do kontraktów API 2.15.0 i 2.16.0: przejścia statusów

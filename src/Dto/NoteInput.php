@@ -7,9 +7,11 @@ namespace TillioCrm\Api\Dto;
 /**
  * Notatka do zapisu - named arguments, null = nie wysyłaj pola.
  * Przy tworzeniu (`POST /v2/contractors/{contractorId}/notes`,
- * `POST /v2/contacts/{contactId}/notes` albo `POST /v2/leads/{leadId}/notes`)
- * API wymaga `noteTypeId` i `title`. Notatka pod leadem nie przyjmuje
- * `contactIds`, `serviceId` ani `pipelineItemId` (422).
+ * `POST /v2/contacts/{contactId}/notes`, `POST /v2/leads/{leadId}/notes` albo
+ * `POST /v2/pipeline/items/{pipelineItemId}/notes`) API wymaga `noteTypeId`
+ * i `title`. Notatka pod leadem nie przyjmuje `contactIds`, `serviceId` ani
+ * `pipelineItemId` (422); pod szansą `pipelineItemId` to 422 - szansę wskazuje
+ * ścieżka, a `contactIds` i `serviceId` muszą należeć do kontrahenta szansy.
  */
 final readonly class NoteInput implements Arrayable
 {

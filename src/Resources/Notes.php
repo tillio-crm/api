@@ -33,6 +33,10 @@ final readonly class Notes extends Resource
      * `id`, `leadId`, `serviceId`, `pipelineId`, `body`, `pinned` i `creatorUserId`
      * wymagają API >= 2.12.2 - starsza instancja odrzuci nieznany parametr błędem 400.
      *
+     * Filtry id (`id`, `contractorId`, `leadId`, `pipelineId`, `serviceId`,
+     * `noteTypeId`, `creatorUserId`) przyjmują od API 2.17.0 listę do 100 wartości -
+     * notatki paczki leadów albo szans jednym zapytaniem: `['leadId' => [659, 660]]`.
+     *
      * @param array<string, mixed> $filters
      *
      * @return Page<Note>
@@ -65,7 +69,8 @@ final readonly class Notes extends Resource
     /**
      * `POST /v2/contractors/{contractorId}/notes` - nowa notatka u kontrahenta.
      * Wymagane `noteTypeId` i `title`. Pod osobą kontaktową:
-     * `contacts()->createNote()`, pod leadem: `leads()->createNote()`.
+     * `contacts()->createNote()`, pod leadem: `leads()->createNote()`, pod szansą
+     * bez podawania kontrahenta: `pipelineItems()->createNote()` (API >= 2.17.0).
      *
      * @param NoteInput|array<string, mixed> $input
      */

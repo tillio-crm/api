@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace TillioCrm\Api;
 
 /**
- * KOMPLETNA mapa tras API v2 (242 trasy, kontrakt 2.16.0) na metody SDK -
+ * KOMPLETNA mapa tras API v2 (243 trasy, kontrakt 2.17.0) na metody SDK -
  * kręgosłup gwarancji
  * pokrycia 100% tras. Test `RouteCoverageTest` pilnuje, żeby każdy wpis
  * wskazywał istniejącą, publiczną metodę, a po pobraniu specyfikacji instancji
@@ -140,6 +140,8 @@ final class RouteMap
         // Etap i status to procesy z historią, nie PUT (>= 2.15.0).
         'POST /v2/pipeline/items/{id}/stage' => self::R . 'PipelineItems::changeStage',
         'POST /v2/pipeline/items/{id}/status' => self::R . 'PipelineItems::changeStatus',
+        // Notatka pod szansą - kontrahenta API bierze z szansy (>= 2.17.0).
+        'POST /v2/pipeline/items/{pipelineItemId}/notes' => self::R . 'PipelineItems::createNote',
 
         // --- Usługi + katalog usług ------------------------------------------------
         'GET /v2/services' => self::R . 'Services::list',

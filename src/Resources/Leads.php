@@ -44,6 +44,11 @@ final readonly class Leads extends Resource
      * `leadTagId` i `district` wymagają API >= 2.15.0 - starsza instancja
      * odrzuci nieznany parametr błędem 400.
      *
+     * Filtry id (`id`, `ownerUserId`, `leadStatusId`, `contractorId`...) przyjmują
+     * od API 2.17.0 listę do 100 wartości: `['id' => [659, 660]]`. Id nieobecne
+     * w odpowiedzi = leada już nie ma - CRM kasuje leady bez śladu, więc to jedyny
+     * sposób na wykrycie usunięcia (`leadTagId` zostaje pojedynczy).
+     *
      * @param array<string, mixed> $filters
      *
      * @return Page<Lead>

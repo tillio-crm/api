@@ -85,17 +85,48 @@ $result = $client->customFields()->create(new CustomFieldInput(
 ));
 $key = $result->data['key'];   // np. "contractor_str_3" - zapisz po swojej stronie
 
-// Zmiana PRZYPISANIA pola do PODTYPOW rekordow (jedyna edycja definicji przez API).
-// Tylko encje z przypisaniami: note (typy notatek), ticket (procesy zgloszen),
-// service (pozycje katalogu uslug), lead (procesy leadowe), pipeline (lejki).
-// assignedTo to KOMPLETNA lista docelowa - np. pole dla wszystkich lejkow po
-// dolozeniu nowego lejka:
-$funnelIds = array_map(fn ($f) => $f->id, $client->dictionaries()->pipelineFunnels());
-$client->customFields()->update('pipeline', 'pipeline_str_3', ['assignedTo' => $funnelIds]);
+// Zmiana PRZYPISANIA pola do PODTYPOW rekordow. Tylko encje z przypisaniami:
+// note (typy notatek), ticket (procesy zgloszen), service (pozycje katalogu uslug),
+// lead (procesy leadowe), pipeline (lejki). assignedTo to KOMPLETNA lista docelowa.
+$client->customFields()->update('pipeline', 'pipeline_str_3', ['assignedTo' => [3, 4, 5]]);
+
+// Pole dla WSZYSTKICH lejkow istniejacych w chwili zapisu (API >= 2.17.0) - bez
+// zbierania id. Nowego lejka CRM sam nie dopnie: powtorz to wywolanie po jego
+// dodaniu, lista tylko urosnie (nic nie jest odpinane).
+$client->customFields()->update('pipeline', 'pipeline_str_3', ['assignedTo' => 'all']);
 ```
 
 Zakładaj pola IDEMPOTENTNIE: etykieta (`name`) jest unikalna w encji, więc
-najpierw `list()`, twórz tylko brakujące.
+najpierw `list()`, twórz tylko brakujące. `assignedTo: 'all'` działa też przy
+zakładaniu (`CustomFieldInput`, API >= 2.17.0).
+
+## Opcje pól wyboru: dopisywanie (API >= 2.17.0)
+
+Pole SELECT albo MULTISELECT dowolnej encji dostaje nowe opcje przez
+`appendOptions()`. API TYLKO dopisuje: nazwy już obecne pomija, istniejące opcje
+zostawia bez zmian (id, kolor, kolejność). Możesz więc przy każdej synchronizacji
+wysyłać pełną listę oczekiwanych opcji - powtórka niczego nie zmienia.
+
+```php
+use TillioCrm\Api\Dto\CustomFieldOptionInput;
+
+// Kanaly pozyskania leadow utrzymywane przez integracje - lista pelna, nie roznica.
+$field = $client->customFields()->appendOptions('lead', 'leads_select_3', [
+    'Facebook Lead Ads',
+    new CustomFieldOptionInput('Polecenie', '#00aa00'),   // opcja z kolorem
+]);
+
+// Wynik to KOMPLET opcji pola po zapisie. W rekordach i filtrach uzywasz ID opcji
+// (value), nie nazwy - optionValue() tlumaczy nazwe na id.
+$polecenie = $field->optionValue('Polecenie');
+$client->leads()->update($leadId, new TillioCrm\Api\Dto\LeadInput(
+    customField: ['leads_select_3' => $polecenie],
+));
+```
+
+Opcje i przypisania można zmienić jednym żądaniem:
+`update($entity, $key, new CustomFieldUpdateInput(assignedTo: 'all', options: [...]))`
+(typowany widok wyniku: `CustomFieldUpdateResult::fromArray($result->data)`).
 
 ## Pliki w polu typu FILE (API >= 2.6.0)
 
@@ -148,6 +179,14 @@ i mogłoby założyć duplikat).
 - **Zwężenie `assignedTo` kasuje dane.** Usunięcie podtypu z listy kasuje
   wartości pola w rekordach tego podtypu - dlatego wymaga `allowUnassign: true`.
   Tylko bool: napis `"false"` był dotąd brany za zgodę; od API 2.14.0 to 422.
+- **`'all'` to podtypy z chwili zapisu, nie "także przyszłe".** CRM przypisuje pole
+  zawsze do konkretnych id; nowy lejek albo proces trzeba dopiąć, powtarzając
+  `update(..., ['assignedTo' => 'all'])`. `assignedTo` przy encji bez podtypów
+  (np. `contractor`) to 422 na tym polu.
+- **Opcji nie usuwasz ani nie zmieniasz przez API.** `appendOptions()` tylko
+  dopisuje; usunięcie albo zmiana nazwy opcji w CRM kasuje wartości w rekordach,
+  więc zostaje w panelu. `options` przy polu innego typu niż SELECT/MULTISELECT
+  i pusta lista opcji to 422.
 - **`editableBy` tylko w kształcie `{userIds, departmentIds, groupIds}`.** Inny
   kształt (`userId`, płaska lista id) od API 2.14.0 to 422 - wcześniej powstawało
   pole widoczne dla wszystkich.

@@ -118,11 +118,43 @@ if ($result->hasFailures()) {
 }
 ```
 
+## Zasada 8: paczka id jednym zapytaniem (API >= 2.17.0)
+
+Każdy filtr dokładny po liczbie całkowitej (`id`, `contractorId`, `leadId`,
+`pipelineId`, `ownerUserId` i pozostałe `*Id` na wszystkich listach) przyjmuje
+LISTĘ do 100 wartości. Podajesz tablicę - SDK wyśle ją jako `?id=12,15,18`.
+Pojedyncza wartość działa jak dotąd.
+
+```php
+use TillioCrm\Api\QueryBuilder;
+
+// Stan paczki znanych leadów i ich notatki - dwa zapytania zamiast 2 x N.
+$leads = $client->leads()->list(['id' => [659, 660, 702], 'limit' => 100]);
+$notes = $client->notes()->list(['leadId' => [659, 660, 702], 'limit' => 100]);
+
+// Więcej niż 100 id: dziel na paczki.
+foreach (array_chunk($ids, QueryBuilder::MAX_LIST_VALUES) as $chunk) {
+    $page = $client->contractors()->list(['id' => $chunk, 'limit' => QueryBuilder::MAX_LIST_VALUES]);
+}
+```
+
+**Wykrywanie usuniętych rekordów.** CRM kasuje leady i szanse bez śladu (nie ma
+tabeli usuniętych ani filtra `deletedAfter`), więc usunięcie widać wyłącznie jako
+BRAK rekordu. Id z paczki nieobecne w odpowiedzi = rekordu już nie ma. Pamiętaj
+o `limit` co najmniej równym długości paczki - inaczej brak na pierwszej stronie
+wziąłbyś za usunięcie.
+
+SDK odrzuca lokalnie (`InvalidFilterException`, żądanie nie wychodzi): pustą listę
+(bez filtra zapytanie zwróciłoby WSZYSTKIE rekordy), więcej niż 100 wartości
+i element, który nie jest liczbą całkowitą ani tekstem bez przecinka. Filtr
+`customField[...]` zostaje pojedynczą wartością. Instancja starsza niż 2.17.0
+odrzuci listę błędem 400 `query.invalidValue`.
+
 ## Rate limiter jest wbudowany
 
 Nie musisz sam pilnować limitów - SDK ma limiter okienkowy, który przytrzyma
 żądanie, zanim dojdzie do 429, oraz retry na 429/5xx. Ale to nie znaczy, że
-możesz strzelać bez sensu: zasady 1-7 wyżej redukują LICZBĘ żądań, a to jest
+możesz strzelać bez sensu: zasady 1-8 wyżej redukują LICZBĘ żądań, a to jest
 tańsze niż jakiekolwiek ponawianie. Nie odpytuj rekordów po jednym w pętli, jeśli
 jeden filtr listy załatwia sprawę.
 
@@ -135,5 +167,7 @@ jeden filtr listy załatwia sprawę.
 - Własny `sort` w `iterate()` na zmieniającym się zbiorze - cicha utrata rekordów.
 - Pętla `create()` po wielu rekordach, gdy zasób ma `upsert()`.
 - Filtrowanie w PHP po pobraniu wszystkiego, zamiast filtra API.
+- `get()` w pętli po znanych id (albo `list(['leadId' => $id])` na każdy rekord),
+  gdy jedna lista z filtrem-listą id załatwia paczkę 100 rekordów (API >= 2.17.0).
 - Buforowanie `downloadUrl` plików - podpisany link żyje ~1 minutę; pobieraj od
   razu po odczycie metadanych, po wygaśnięciu odczytaj metadane ponownie.

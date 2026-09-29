@@ -24,15 +24,21 @@ final readonly class CustomFieldInput implements Arrayable
 {
     /**
      * @param string|null               $entity     encja pola (np. `contractor`)
-     * @param list<string>|null         $options    opcje pól wyboru
+     * @param list<string|CustomFieldOptionInput>|null $options
+     *                                              opcje pól wyboru (SELECT/MULTISELECT): nazwy albo
+     *                                              `CustomFieldOptionInput` z kolorem. Opcje do
+     *                                              istniejącego pola: `customFields()->appendOptions()`
      * @param array<string, mixed>|null $config     konfiguracja typu
-     * @param list<int>|null            $assignedTo id PODTYPÓW rekordów, w których pole działa - NIE
+     * @param list<int>|'all'|null      $assignedTo id PODTYPÓW rekordów, w których pole działa - NIE
      *                                              użytkowników (dostęp ustawia `editableBy`). Wymagane
      *                                              dla encji z przypisaniami: `note` (typy notatek),
      *                                              `ticket` (procesy zgłoszeń), `service` (pozycje
      *                                              katalogu usług), `lead` (procesy leadowe),
      *                                              `pipeline` (lejki sprzedaży). Nieistniejący podtyp
-     *                                              to 422 i pole nie powstaje (od API 2.14.0)
+     *                                              to 422 i pole nie powstaje (od API 2.14.0).
+     *                                              `'all'` = wszystkie podtypy istniejące w chwili
+     *                                              zapisu (API >= 2.17.0); podtyp założony później
+     *                                              dopina `customFields()->update()` z tym samym `'all'`
      * @param array{userIds?: list<int>, departmentIds?: list<int>, groupIds?: list<int>}|null $editableBy
      *                                              ACL pola: kto widzi i edytuje wartości
      *                                              (jednolity kształt ACL API; null = wszyscy) -
@@ -46,7 +52,7 @@ final readonly class CustomFieldInput implements Arrayable
         public ?array $options = null,
         public ?array $config = null,
         public ?bool $required = null,
-        public ?array $assignedTo = null,
+        public array|string|null $assignedTo = null,
         public ?array $editableBy = null,
     ) {
     }
@@ -57,7 +63,7 @@ final readonly class CustomFieldInput implements Arrayable
             'entity' => $this->entity,
             'name' => $this->name,
             'type' => $this->type,
-            'options' => $this->options,
+            'options' => $this->options === null ? null : CustomFieldOptionInput::listPayload($this->options),
             'config' => $this->config,
             'required' => $this->required,
             'assignedTo' => $this->assignedTo,

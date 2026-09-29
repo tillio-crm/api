@@ -61,9 +61,15 @@ jednorazowe hasła) są zneutralizowane w kodzie, zanim żądanie w ogóle wyjdz
   (`lookup()->email()`), kategorie i tagi leadów, kontakty przy szansie od
   **2.15.0**, służbowe dane kontaktowe użytkownika (`jobTitle`, `contactPhone`,
   `contactEmail`, `gender`) i jego aktywność (`users()->activity()`) od
-  **2.16.0**. Wywołanie
+  **2.16.0**, filtry-listy id (`['id' => [12, 15, 18]]`), kontrahent przy szansie
+  jednym zapytaniem (`include=contractor`), lejek i link "otwórz w CRM" szansy
+  (`PipelineItem::$pipelineFunnelId`, `$url`) i leada (`Lead::$url`), notatka pod
+  szansą (`pipelineItems()->createNote()`), dopisywanie opcji selecta
+  (`customFields()->appendOptions()`) i przypisanie pola do wszystkich podtypów
+  (`assignedTo: 'all'`) od **2.17.0**. Wywołanie
   funkcji, której CRM instalacji jeszcze nie ma, kończy się `FeatureNotSupportedException`
-  (501); trasy spoza wersji API - błędem 404.
+  (501); trasy spoza wersji API - błędem 404, a nieznany na starszej instancji
+  parametr zapytania - błędem 400.
 
 ## Instalacja
 
@@ -190,6 +196,32 @@ foreach ($client->contractors()->iterate(['contractorTypeId' => 1]) as $contract
     // ...
 }
 ```
+
+Filtry dokładne po liczbie całkowitej (`id`, `contractorId`, `leadId`,
+`ownerUserId` i pozostałe `*Id` na każdej liście) przyjmują od API 2.17.0 **listę
+do 100 wartości** - podajesz tablicę, SDK skleja ją do `?id=12,15,18`. Tak sprawdzisz
+paczkę znanych rekordów jednym zapytaniem, a id nieobecne w odpowiedzi oznacza
+rekord usunięty w CRM (leady i szanse CRM kasuje bez śladu - innego sposobu na
+wykrycie usunięcia nie ma):
+
+```php
+use TillioCrm\Api\QueryBuilder;
+
+$known = [659, 660, 702];   // id leadów zapamiętane po swojej stronie
+$deleted = [];
+foreach (array_chunk($known, QueryBuilder::MAX_LIST_VALUES) as $chunk) {
+    $found = [];
+    foreach ($client->leads()->list(['id' => $chunk, 'limit' => QueryBuilder::MAX_LIST_VALUES]) as $lead) {
+        $found[] = $lead->id;
+    }
+    array_push($deleted, ...array_diff($chunk, $found));
+}
+// $deleted - leadów o tych id już nie ma w CRM
+```
+
+Pustą listę, więcej niż 100 wartości i element, który nie jest liczbą całkowitą
+(albo tekstem bez przecinka), SDK odrzuca `InvalidFilterException`, zanim żądanie
+wyjdzie - pusta lista bez filtra zwróciłaby wszystkie rekordy.
 
 **`iterate()` domyślnie wymusza `sort=id`** - i to nie jest kosmetyka. API
 stronicuje przez LIMIT/OFFSET z domyślnym sortowaniem po dacie modyfikacji,
@@ -404,7 +436,7 @@ vendor/bin/phpunit
 vendor/bin/phpstan analyse --memory-limit=1G
 ```
 
-Zestaw zawiera test kontraktowy (`RouteCoverageTest` - każda z 242 tras mapy
+Zestaw zawiera test kontraktowy (`RouteCoverageTest` - każda z 243 tras mapy
 wskazuje istniejącą metodę SDK; pełne porównanie 1:1 ze specyfikacją instancji
 włączysz, pobierając `GET /v2/openapi.json` i ustawiając `TILLIO_OPENAPI_FILE`)
 oraz test przenośności (zero zależności spoza `TillioCrm\Api` w `src/`).
