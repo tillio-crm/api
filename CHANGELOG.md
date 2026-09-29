@@ -5,7 +5,7 @@ z perspektywy konsumenta SDK; wpisy grupowane per wydanie (przy 0.1.0 wszystko
 jest nowe, od kolejnych wydań sekcje Dodane/Zmienione/Naprawione).
 Wersjonowanie: semver (przed 1.0.0 zmiany łamiące = minor).
 
-## [Unreleased]
+## [0.5.0] - 2026-09-29
 
 Dostosowanie do kontraktu API 2.17.0: paczka znanych rekordów jednym
 zapytaniem (lista id w filtrze), szansa sprzedaży z kontrahentem, lejkiem
@@ -421,7 +421,8 @@ Pierwsze wydanie. Wymaga Tillio API v2 w wersji **co najmniej 2.0.4**
 - Selfcheck z raportem (HTTP 500 z raportem dryfu to wynik, nie awaria),
   `health()`, `whoami()`, `openapi()`, `modules()`.
 
-[Unreleased]: https://github.com/tillio-crm/api/compare/0.4.0...HEAD
+[Unreleased]: https://github.com/tillio-crm/api/compare/0.5.0...HEAD
+[0.5.0]: https://github.com/tillio-crm/api/compare/0.4.0...0.5.0
 [0.4.0]: https://github.com/tillio-crm/api/compare/0.3.1...0.4.0
 [0.3.1]: https://github.com/tillio-crm/api/compare/0.3.0...0.3.1
 [0.3.0]: https://github.com/tillio-crm/api/compare/0.2.0...0.3.0
