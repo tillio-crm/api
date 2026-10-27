@@ -6,13 +6,13 @@ namespace TillioCrm\Api\Dto;
 
 /**
  * Zmiana istniejącego pola niestandardowego (`PUT /v2/{entity}/custom-fields/{key}`,
- * `customFields()->update()`): przypisania do podtypów rekordów i dopisanie opcji
- * selecta - osobno albo razem w jednym żądaniu. Potrzebne jest `assignedTo` ALBO
- * `options` (albo oba); input bez żadnego z nich to 422 `body.required` (od API 2.17.0,
- * wcześniej `assignedTo` było zawsze wymagane).
+ * `customFields()->update()`): przypisania do podtypów rekordów, dopisanie opcji
+ * selecta i link pola URL - osobno albo razem w jednym żądaniu. Potrzebne jest
+ * `assignedTo`, `options` albo `config`; input bez żadnego z nich to 422 `body.required`
+ * (od API 2.17.0, wcześniej `assignedTo` było zawsze wymagane; `config` od API 2.18.0).
  *
- * Pozostałych własności pola (etykieta, typ, wymagalność, `editableBy`) API nie zmienia -
- * to operacje w panelu CRM. Wymaga klucza API superadmina.
+ * Pozostałych własności pola (etykieta, typ, wymagalność, `editableBy`, formatowanie
+ * liczb) API nie zmienia - to operacje w panelu CRM. Wymaga klucza API superadmina.
  */
 final readonly class CustomFieldUpdateInput implements Arrayable
 {
@@ -39,11 +39,18 @@ final readonly class CustomFieldUpdateInput implements Arrayable
      *                                                                wysyłać przy każdej synchronizacji. Usunięcia
      *                                                                ani zmiany nazwy API nie robi. Pole innego
      *                                                                typu to 422 na `options`
+     * @param array{anchor?: string|null, target?: string}|null $config link pola URL (API >= 2.18.0):
+     *                                                                `anchor` - tekst linku (pusty albo null =
+     *                                                                CRM pokazuje sam adres), `target` -
+     *                                                                `CustomFieldInput::LINK_*`. Niepodany klucz
+     *                                                                zostaje bez zmian. Inne klucze i pole innego
+     *                                                                typu niż URL to 422 na `config`
      */
     public function __construct(
         public array|string|null $assignedTo = null,
         public ?bool $allowUnassign = null,
         public ?array $options = null,
+        public ?array $config = null,
     ) {
     }
 
@@ -53,6 +60,7 @@ final readonly class CustomFieldUpdateInput implements Arrayable
             'assignedTo' => $this->assignedTo,
             'allowUnassign' => $this->allowUnassign,
             'options' => $this->options === null ? null : CustomFieldOptionInput::listPayload($this->options),
+            'config' => $this->config,
         ]);
     }
 }

@@ -59,6 +59,11 @@ Input (`PhoneCallInput`) - wszystkie pola konstruktora:
 | `recordingCallId` | ?string | Id nagrania w systemie telefonii, jesli rozmowa byla nagrana |
 | `callsUrl` | ?string | Link do rozmowy w panelu systemu telefonii |
 | `creatorUserId` | ?int | Tylko przy tworzeniu. Pracownik, ktory rejestruje rekord (audyt), gdy inny niz `userId` |
+| `sentiment` | ?string | API >= 2.18.0. Sentyment z analizy AI: `'negative'`, `'neutral'`, `'positive'` (stale `PhoneCallInput::SENTIMENT_*`; skale 1-3 przelicza `PhoneCallInput::sentimentFromLevel()`). CRM pokazuje go przy notatce „Telefon" |
+| `transcription` | ?list | API >= 2.18.0. Transkrypcja: lista `PhoneCallTranscriptSegment` (`speaker`: `'agent'` = pracownik albo `'client'`, `startSec`, `text`, opcjonalnie `endSec`). W `update()` zastepuje poprzednia w calosci |
+
+Odczyt (`PhoneCall`) ma te same pola (`sentiment`, `transcription`) - transkrypcja przychodzi
+TYLKO z `get()` i z wyniku `create()`/`update()`; rekordy z `list()`/`iterate()` maja `null`.
 
 Odczyt (`PhoneCall`) - pola dodatkowe, ktorych input NIE przyjmuje (ustawia je CRM):
 
@@ -195,12 +200,24 @@ Gdy system telefonii dosyla dane po zakonczeniu rozmowy (transkrypcja, link do
 nagrania), zaktualizuj istniejacy rekord. `update()` tez zwraca `PhoneCall`.
 
 ```php
+use TillioCrm\Api\Dto\PhoneCallTranscriptSegment as Segment;
+
 $client->phoneCalls()->update($call->id, new PhoneCallInput(
     summary: '<p>Klient prosi o oferte na wdrozenie.</p>',
     tldr: 'Prosba o oferte',
     recordingCallId: 'rec-xyz789',
     callsUrl: 'https://calls.example/rec-xyz789',
+    // API >= 2.18.0: sentyment trafia tez na notatke „Telefon", ktora juz istnieje.
+    sentiment: PhoneCallInput::sentimentFromLevel(3),          // 'positive'
+    transcription: [
+        new Segment(Segment::SPEAKER_AGENT, 0, 'Dzien dobry, dzwonie w sprawie oferty.'),
+        new Segment(Segment::SPEAKER_CLIENT, 4.5, 'Dzien dobry, slucham.'),
+    ],
 ));
+
+// Wyczyszczenie sentymentu albo transkrypcji (np. analiza powtorzona bez wyniku):
+// jawny null przez tablice - w DTO null znaczy "nie wysylaj".
+$client->phoneCalls()->update($call->id, ['sentiment' => null, 'transcription' => null]);
 ```
 
 ### Przypiecie do konkretnego kontrahenta z nazwy
@@ -250,3 +267,16 @@ $userId = resolveUserId($client, 'Jan', 'Kowalski');
 - **`contractorIds` (odczyt) vs `contractorId` (input).** Input przyjmuje jeden
   `contractorId`; odczyt zwraca liste `contractorIds` (rozmowa moze dotknac
   wielu kartotek przez wspoldzielony kontakt).
+- **Ikona sentymentu zalezy od ustawienia CRM.** Sentyment zapisuje sie zawsze,
+  ale notatka pokazuje go tylko przy wlaczonym wyswietlaniu sentymentu
+  w ustawieniach VoIP instancji. Brak ikony to nie blad zapisu.
+- **Transkrypcja: limity i HTML.** Najwyzej 5000 wypowiedzi, 10 000 znakow na
+  wypowiedz i 500 000 lacznie (wiecej = 422); znaczniki HTML API wycina. Pusta
+  lista to 422 - "brak transkrypcji" to pominiete pole albo jawny null w tablicy.
+- **Transkrypcji nie ma na liscie.** `list()` i `iterate()` daja
+  `transcription = null` nawet przy rozmowie z transkrypcja - po tresc siegasz
+  przez `get($id)`.
+- **Menu notatki „Telefon".** Pozycje „Transkrypcja" i „Podsumowanie rozmowy"
+  CRM pokazuje tylko przy rozmowie z `recordingCallId` i `duration > 0`.
+  Transkrypcje i podsumowanie wysylaj jednym `update()` po analizie -
+  klikniecie przed analiza konczy sie w CRM komunikatem o nieudanym pobraniu.

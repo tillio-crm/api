@@ -80,12 +80,16 @@ final readonly class CustomFields extends Resource
      * Innych właściwości definicji nie da się zmienić - pole z błędną definicją
      * trzeba założyć od nowa.
      *
+     * Od API 2.18.0 także `config` - link pola URL (`anchor`, `target`); samą zmianę
+     * linku robi wygodniej {@see updateLink()}.
+     *
      * Odpowiedź w `WriteResult::$data`: `key`, `assignedTo` (tylko encje
-     * z podtypami) i `options` (tylko SELECT/MULTISELECT, od API 2.17.0) -
-     * typowany widok: `CustomFieldUpdateResult::fromArray($result->data)`.
+     * z podtypami), `options` (tylko SELECT/MULTISELECT, od API 2.17.0) i `config`
+     * (tylko pola URL, od API 2.18.0) - typowany widok:
+     * `CustomFieldUpdateResult::fromArray($result->data)`.
      * `WriteResult::$id` jest tu zawsze null (definicję adresuje klucz).
      *
-     * @param CustomFieldUpdateInput|array{assignedTo?: list<int>|'all', allowUnassign?: bool, options?: list<string|array{name: string, color?: string}>} $input
+     * @param CustomFieldUpdateInput|array{assignedTo?: list<int>|'all', allowUnassign?: bool, options?: list<string|array{name: string, color?: string}>, config?: array{anchor?: string|null, target?: string}} $input
      */
     public function update(string $entity, string $key, CustomFieldUpdateInput|array $input): WriteResult
     {
@@ -122,6 +126,39 @@ final readonly class CustomFields extends Resource
         return CustomFieldUpdateResult::fromArray(self::single($this->client->put(
             self::fieldPath($entity, $key),
             (new CustomFieldUpdateInput(options: $options))->toArray(),
+        )));
+    }
+
+    /**
+     * `PUT /v2/{entity}/custom-fields/{key}` z samym `config` - tekst i sposób otwarcia
+     * linku pola typu URL (API >= 2.18.0).
+     *
+     *     $field = $client->customFields()->updateLink('contractor', 'contractor_varchar_7',
+     *         anchor: 'Otwórz w Tillio Calls',
+     *         target: CustomFieldInput::LINK_NEW_TAB,
+     *     );
+     *     $field->linkAnchor();   // 'Otwórz w Tillio Calls'
+     *
+     * Podajesz tylko to, co zmieniasz - drugi parametr null zostawia zapisaną wartość.
+     * Pusty `anchor` ('') zdejmuje tekst linku (CRM pokaże sam adres). Pole innego typu niż
+     * URL, `target` spoza `CustomFieldInput::LINK_*` albo oba parametry null = 422. Wymaga
+     * klucza API superadmina; instancja starsza niż 2.18.0 odrzuci `config` błędem 422.
+     *
+     * @return CustomFieldUpdateResult zapisany config pola (`linkAnchor()`, `linkTarget()`)
+     */
+    public function updateLink(string $entity, string $key, ?string $anchor = null, ?string $target = null): CustomFieldUpdateResult
+    {
+        $config = [];
+        if ($anchor !== null) {
+            $config['anchor'] = $anchor;
+        }
+        if ($target !== null) {
+            $config['target'] = $target;
+        }
+
+        return CustomFieldUpdateResult::fromArray(self::single($this->client->put(
+            self::fieldPath($entity, $key),
+            (new CustomFieldUpdateInput(config: $config))->toArray(),
         )));
     }
 

@@ -19,16 +19,34 @@ namespace TillioCrm\Api\Dto;
  *  - etykieta (`name`) jest unikalna w encji - zakładanie rób idempotentnie:
  *    najpierw odczytaj listę pól, twórz tylko brakujące,
  *  - klucz pola nadaje CRM (wraca w odpowiedzi) - nie da się go narzucić.
+ *
+ * Pole typu URL (link): `config: ['anchor' => 'Otwórz w Tillio Calls', 'target' => CustomFieldInput::LINK_NEW_TAB]`
+ * - tekst linku zamiast adresu i sposób otwarcia (API >= 2.18.0 sprawdza `target`; starsze instancje
+ * zapisywały wartość spoza listy po cichu jako nową kartę). Zmiana po założeniu:
+ * `customFields()->updateLink()`.
  */
 final readonly class CustomFieldInput implements Arrayable
 {
+    /** Pole URL: link otwiera się w nowej karcie (domyślnie). */
+    public const string LINK_NEW_TAB = '_blank';
+
+    /** Pole URL: link otwiera się w tej samej karcie. */
+    public const string LINK_SAME_TAB = '_self';
+
+    /** Pole URL: link otwiera się w ramce w CRM (strona docelowa musi pozwalać na osadzanie). */
+    public const string LINK_IFRAME = 'iframe';
+
     /**
      * @param string|null               $entity     encja pola (np. `contractor`)
      * @param list<string|CustomFieldOptionInput>|null $options
      *                                              opcje pól wyboru (SELECT/MULTISELECT): nazwy albo
      *                                              `CustomFieldOptionInput` z kolorem. Opcje do
      *                                              istniejącego pola: `customFields()->appendOptions()`
-     * @param array<string, mixed>|null $config     konfiguracja typu
+     * @param array<string, mixed>|null $config     konfiguracja typu: formatowanie liczb (`INT`:
+     *                                              `option`, `precision`, `position`, `customLabel`,
+     *                                              `currencyCode`) albo link pola `URL` (`anchor` - tekst
+     *                                              linku, do 100 znaków; `target` - `LINK_*`). Klucz
+     *                                              niepasujący do typu pola to 422 (API >= 2.18.0)
      * @param list<int>|'all'|null      $assignedTo id PODTYPÓW rekordów, w których pole działa - NIE
      *                                              użytkowników (dostęp ustawia `editableBy`). Wymagane
      *                                              dla encji z przypisaniami: `note` (typy notatek),

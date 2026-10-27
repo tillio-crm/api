@@ -6,6 +6,7 @@ namespace TillioCrm\Api\Tests;
 
 use PHPUnit\Framework\TestCase;
 use TillioCrm\Api\Dto\CategoryInput;
+use TillioCrm\Api\Dto\CustomFieldDefinition;
 use TillioCrm\Api\Dto\CustomFieldInput;
 use TillioCrm\Api\Dto\CustomFieldOptionInput;
 use TillioCrm\Api\Dto\CustomFieldUpdateInput;
@@ -254,6 +255,44 @@ final class MiscResourcesTest extends TestCase
         $field = CustomFieldUpdateResult::fromArray($result->data);
         self::assertSame([3, 4, 5], $field->assignedTo);
         self::assertSame(1, $field->optionValue('TAK'));
+    }
+
+    public function testCustomFieldUpdateLinkSendsOnlyGivenKeysAndMapsConfig(): void
+    {
+        // Kontrakt 2.18.0: config pola URL w PUT; niepodany klucz zostaje w CRM bez zmian,
+        // odpowiedź niesie zapisany config.
+        $this->transport->queueJson(200, '{"data":{"key":"contractor_varchar_7","config":{"validation":"url","anchor":"Otwórz w Tillio Calls","target":"_blank","target_option":[{"name":"W nowej karcie","value":"_blank"}]}}}');
+
+        $field = $this->client()->customFields()->updateLink('contractor', 'contractor_varchar_7', anchor: 'Otwórz w Tillio Calls');
+
+        $request = $this->transport->lastRequest();
+        self::assertSame('PUT', $request->method);
+        self::assertSame('v2/contractor/custom-fields/contractor_varchar_7', $request->path);
+        self::assertSame(['config' => ['anchor' => 'Otwórz w Tillio Calls']], $request->body);
+        self::assertSame('Otwórz w Tillio Calls', $field->linkAnchor());
+        self::assertSame(CustomFieldInput::LINK_NEW_TAB, $field->linkTarget());
+        self::assertNull($field->options);
+    }
+
+    public function testCustomFieldUpdateResultWithoutConfigHasNoLink(): void
+    {
+        $field = CustomFieldUpdateResult::fromArray(['key' => 'contractor_select_1', 'options' => []]);
+
+        self::assertNull($field->config);
+        self::assertNull($field->linkAnchor());
+        self::assertNull($field->linkTarget());
+    }
+
+    public function testCustomFieldDefinitionRecognizesLinkByValidation(): void
+    {
+        $link = CustomFieldDefinition::fromArray(['key' => 'contractor_varchar_7', 'type' => 'VARCHAR', 'config' => ['validation' => 'url', 'anchor' => '', 'target' => 'iframe']]);
+        $email = CustomFieldDefinition::fromArray(['key' => 'contractor_varchar_2', 'type' => 'VARCHAR', 'config' => ['validation' => 'email']]);
+
+        self::assertTrue($link->isLink());
+        self::assertSame('', $link->linkAnchor());
+        self::assertSame(CustomFieldInput::LINK_IFRAME, $link->linkTarget());
+        self::assertFalse($email->isLink());
+        self::assertNull($email->linkTarget());
     }
 
     public function testCustomFieldUpdateInputSendsOnlyGivenFields(): void

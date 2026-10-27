@@ -76,6 +76,30 @@ Usunięcia ani zmiany nazwy opcji API nie robi (CRM kasuje przy tym wartości
 w rekordach) - to operacja w panelu. `options` przy polu innego typu niż
 SELECT/MULTISELECT i `assignedTo` przy encji bez podtypów to 422 na tym polu.
 
+## Pole URL: tekst linku i sposób otwarcia (API >= 2.18.0)
+
+```php
+use TillioCrm\Api\Dto\CustomFieldInput;
+
+// Link z własnym tekstem, otwierany w nowej karcie.
+$client->customFields()->create(new CustomFieldInput(
+    entity: 'contractor',
+    name: 'Tillio Calls URL',
+    type: 'URL',
+    config: ['anchor' => 'Otwórz w Tillio Calls', 'target' => CustomFieldInput::LINK_NEW_TAB],
+    editableBy: ['userIds' => [7]],
+));
+
+// Zmiana po założeniu - tylko podane klucze, reszta zostaje.
+$field = $client->customFields()->updateLink('contractor', 'contractor_varchar_7', target: CustomFieldInput::LINK_SAME_TAB);
+$field->linkAnchor();   // tekst linku po zapisie ('' = CRM pokazuje adres)
+$field->linkTarget();   // '_self'
+```
+
+`target` przyjmuje `LINK_NEW_TAB` (`_blank`), `LINK_SAME_TAB` (`_self`) i `LINK_IFRAME`
+(`iframe`); inna wartość (np. „modal”) to 422. Wartość pola zapisuj jako pełny
+adres z `https://` - bez schematu API odpowie 422 na `customField[<klucz>]`.
+
 **Pułapka `editableBy`:** pole założone BEZ `editableBy` przyjmuje odczyt, ale
 każdy zapis wartości kończy się 422 - na każdym rekordzie, także utworzonym
 przed chwilą przez tę samą integrację. Objaw myli (wygląda na brak uprawnień

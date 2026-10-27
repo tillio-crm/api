@@ -5,6 +5,51 @@ z perspektywy konsumenta SDK; wpisy grupowane per wydanie (przy 0.1.0 wszystko
 jest nowe, od kolejnych wydań sekcje Dodane/Zmienione/Naprawione).
 Wersjonowanie: semver (przed 1.0.0 zmiany łamiące = minor).
 
+## [Unreleased]
+
+Dostosowanie do kontraktu API 2.18.0: sentyment i transkrypcja rozmowy
+telefonicznej, tekst i sposób otwarcia linku w polach niestandardowych typu URL.
+Minor - nowe pola i metody; DTO odczytu dostały nowe argumenty konstruktora
+(patrz Zmienione).
+
+### Dodane
+
+- `PhoneCallInput::$sentiment` (API >= 2.18.0): sentyment z analizy AI -
+  `negative`, `neutral`, `positive` (stałe `PhoneCallInput::SENTIMENT_*`).
+  Skalę 1-3 z Tillio AI przelicza `PhoneCallInput::sentimentFromLevel()`.
+  CRM pokazuje sentyment przy notatce „Telefon”, także gdy przyszedł w `update()`
+  po zapisaniu rozmowy.
+- `PhoneCallInput::$transcription` i nowe DTO `PhoneCallTranscriptSegment`
+  (`speaker`: `agent`/`client`, `startSec`, `text`, opcjonalnie `endSec`) -
+  transkrypcja rozmowy (API >= 2.18.0). W `update()` zastępuje poprzednią
+  w całości. Limity API: 5000 wypowiedzi, 10 000 znaków na wypowiedź,
+  500 000 łącznie. Przy rozmowie z `recordingCallId` CRM pokazuje transkrypcję
+  i podsumowanie w menu notatki „Telefon”.
+- `PhoneCall::$sentiment` i `PhoneCall::$transcription` w odczycie. Transkrypcja
+  przychodzi tylko z `get()` i z wyniku `create()`/`update()` - rekordy listy
+  mają `null`. Filtr listy `sentiment`.
+- `customFields()->updateLink($entity, $key, anchor:, target:)` - tekst
+  i sposób otwarcia linku pola typu URL po założeniu (API >= 2.18.0). Zwraca
+  `CustomFieldUpdateResult` z zapisanym `config`.
+- Stałe `CustomFieldInput::LINK_NEW_TAB` (`_blank`), `LINK_SAME_TAB` (`_self`),
+  `LINK_IFRAME` (`iframe`) do `config.target`; API >= 2.18.0 odrzuca inną
+  wartość błędem 422 (wcześniej CRM po cichu zapisywał nową kartę).
+- `CustomFieldUpdateInput::$config` (link pola URL w `update()`),
+  `CustomFieldUpdateResult::$config` z `linkAnchor()` / `linkTarget()`
+  i `CustomFieldDefinition::isLink()`, `linkAnchor()`, `linkTarget()` -
+  idempotentne sprawdzenie, czy istniejące pole ma właściwy link.
+
+### Zmienione
+
+- Konstruktory DTO odczytu `PhoneCall` (nowe `sentiment`, `transcription`)
+  i `CustomFieldUpdateResult` (nowe `config`) mają dodatkowe argumenty przed
+  `raw`. Dotyczy wyłącznie kodu, który tworzy te obiekty ręcznie (np. w testach) -
+  `fromArray()` działa bez zmian.
+- Dokumentacja pól niestandardowych: od API 2.18.0 wartości pól URL, e-mail,
+  telefon i domena są sprawdzane przed zapisem rekordu - zła wartość to
+  `ValidationException` na `customField[<key>]`, rekord nie zapisuje się
+  częściowo.
+
 ## [0.5.0] - 2026-09-29
 
 Dostosowanie do kontraktu API 2.17.0: paczka znanych rekordów jednym

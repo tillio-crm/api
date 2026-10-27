@@ -128,6 +128,42 @@ Opcje i przypisania można zmienić jednym żądaniem:
 `update($entity, $key, new CustomFieldUpdateInput(assignedTo: 'all', options: [...]))`
 (typowany widok wyniku: `CustomFieldUpdateResult::fromArray($result->data)`).
 
+## Pole URL: tekst linku i sposób otwarcia (API >= 2.18.0)
+
+Pole typu `URL` jest w CRM klikalnym linkiem. `config.anchor` to tekst linku zamiast
+adresu (do 100 znaków; pusty = CRM pokazuje sam adres), `config.target` - sposób
+otwarcia: `CustomFieldInput::LINK_NEW_TAB` (`_blank`, domyślnie), `LINK_SAME_TAB`
+(`_self`) albo `LINK_IFRAME` (`iframe`, ramka w CRM - strona docelowa musi pozwalać
+na osadzanie). Opcji „modal" CRM nie ma; wartość spoza listy to 422.
+
+```php
+use TillioCrm\Api\Dto\CustomFieldInput;
+
+// Zalozenie pola z linkiem otwieranym w nowej karcie.
+$client->customFields()->create(new CustomFieldInput(
+    entity: 'contractor',
+    name: 'Tillio Calls URL',
+    type: 'URL',
+    config: ['anchor' => 'Otworz w Tillio Calls', 'target' => CustomFieldInput::LINK_NEW_TAB],
+    editableBy: ['userIds' => [7]],
+));
+
+// Pole juz istnieje (np. zalozone samym type: URL) - idempotentna poprawka linku.
+foreach ($client->customFields()->list('contractor') as $def) {
+    if ($def->name === 'Tillio Calls URL' && $def->isLink() && $def->linkAnchor() === '') {
+        $client->customFields()->updateLink('contractor', (string) $def->key, anchor: 'Otworz w Tillio Calls');
+    }
+}
+
+// Wartosc pola: PELNY adres z https:// - bez schematu API odpowie 422 na customField[<key>].
+$client->contractors()->update(42, new TillioCrm\Api\Dto\ContractorInput(
+    customField: [$key => 'https://calls.tillio.app/c/123'],
+));
+```
+
+W odczycie definicji `type` pola URL to `VARCHAR` (ten sam typ kolumny mają e-mail,
+telefon i domena) - rodzaj pola rozpoznaje `isLink()` po `config.validation`.
+
 ## Pliki w polu typu FILE (API >= 2.6.0)
 
 Pole FILE ma osobne metody - wartości nie idą przez `customField`:
@@ -206,5 +242,10 @@ i mogłoby założyć duplikat).
   `*FieldFile()`, nie `customField` w PUT rekordu.
 - **`custom:<key>` w `duplicateCheck` wymaga wartości** w `customField[<key>]`
   tego samego żądania (strażnik lokalny).
+- **Wartości URL, e-mail, telefonu i domeny API sprawdza przed zapisem** (API >= 2.18.0):
+  URL tylko z `http://`/`https://`, telefon same cyfry (opcjonalnie `+`, min. 9 znaków),
+  domena bez schematu. Zła wartość = 422 na `customField[<key>]`, rekord się nie zapisuje.
+  Starsze instancje odrzucały ją ogólnym błędem bez nazwy pola, a przy zadaniu tylko
+  ostrzeżeniem po zapisie.
 - **Filtr po wartości pustej** = `CustomFieldFilter::NotSet`, nie pusty string
   (patrz [../queries/README.md](../queries/README.md)).

@@ -16,6 +16,10 @@ final readonly class PhoneCall
      * @param 'answered'|'missed'|'busy'|'voicemail'|'failed'|string|null $status        status rozmowy
      * @param list<int>            $contractorIds  powiązane kartoteki kontrahentów
      * @param list<int>            $noteIds        notatki powstałe z rozmowy
+     * @param 'negative'|'neutral'|'positive'|string|null $sentiment sentyment z analizy AI;
+     *        null = brak analizy (API >= 2.18.0, starsze instancje zawsze null)
+     * @param list<PhoneCallTranscriptSegment>|null $transcription transkrypcja - WYŁĄCZNIE z `get()`
+     *        i z wyniku `create()`/`update()`; strona listy jej nie niesie (null). API >= 2.18.0
      * @param array<string, mixed> $raw            pełny rekord z API
      */
     public function __construct(
@@ -38,6 +42,8 @@ final readonly class PhoneCall
         public ?string $recordingCallId,
         public ?string $callsUrl,
         public array $noteIds,
+        public ?string $sentiment,
+        public ?array $transcription,
         public array $raw = [],
     ) {
     }
@@ -67,6 +73,10 @@ final readonly class PhoneCall
             recordingCallId: Cast::string($row['recordingCallId'] ?? null),
             callsUrl: Cast::string($row['callsUrl'] ?? null),
             noteIds: Cast::intList($row['noteIds'] ?? null),
+            sentiment: Cast::string($row['sentiment'] ?? null),
+            transcription: is_array($row['transcription'] ?? null)
+                ? array_map(PhoneCallTranscriptSegment::fromArray(...), Cast::rows($row['transcription']))
+                : null,
             raw: $row,
         );
     }

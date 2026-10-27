@@ -11,7 +11,7 @@ namespace TillioCrm\Api\Dto;
  *
  * `null` znaczy "nie dotyczy tego pola", nie "puste": `assignedTo` przychodzi tylko dla
  * encji z podtypami (note, ticket, service, lead, pipeline), `options` tylko dla pól
- * SELECT i MULTISELECT (od API 2.17.0).
+ * SELECT i MULTISELECT (od API 2.17.0), `config` tylko dla pól URL (od API 2.18.0).
  */
 final readonly class CustomFieldUpdateResult
 {
@@ -20,12 +20,16 @@ final readonly class CustomFieldUpdateResult
      * @param list<int>|null               $assignedTo przypisania do podtypów po zapisie
      * @param list<CustomFieldOption>|null $options    KOMPLET opcji po zapisie (istniejące i dopisane),
      *                                                 w kolejności z CRM
+     * @param array<string, mixed>|null    $config     zapisana konfiguracja pola URL (`validation`,
+     *                                                 `anchor`, `target`, `target_option`) - wygodniej
+     *                                                 przez {@see linkAnchor()} i {@see linkTarget()}
      * @param array<string, mixed>         $raw        pełne `data` odpowiedzi
      */
     public function __construct(
         public string $key,
         public ?array $assignedTo,
         public ?array $options,
+        public ?array $config,
         public array $raw = [],
     ) {
     }
@@ -41,8 +45,21 @@ final readonly class CustomFieldUpdateResult
             options: is_array($row['options'] ?? null)
                 ? array_map(CustomFieldOption::fromArray(...), Cast::rows($row['options']))
                 : null,
+            config: Cast::mapOrNull($row['config'] ?? null),
             raw: $row,
         );
+    }
+
+    /** Tekst linku pola URL po zapisie (pusty = CRM pokazuje sam adres); null przy polu innego typu. */
+    public function linkAnchor(): ?string
+    {
+        return $this->config === null ? null : (Cast::string($this->config['anchor'] ?? null) ?? '');
+    }
+
+    /** Sposób otwarcia linku pola URL po zapisie (`CustomFieldInput::LINK_*`); null przy polu innego typu. */
+    public function linkTarget(): ?string
+    {
+        return $this->config === null ? null : Cast::string($this->config['target'] ?? null);
     }
 
     /**

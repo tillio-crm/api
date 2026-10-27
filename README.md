@@ -66,7 +66,9 @@ jednorazowe hasła) są zneutralizowane w kodzie, zanim żądanie w ogóle wyjdz
   (`PipelineItem::$pipelineFunnelId`, `$url`) i leada (`Lead::$url`), notatka pod
   szansą (`pipelineItems()->createNote()`), dopisywanie opcji selecta
   (`customFields()->appendOptions()`) i przypisanie pola do wszystkich podtypów
-  (`assignedTo: 'all'`) od **2.17.0**. Wywołanie
+  (`assignedTo: 'all'`) od **2.17.0**, sentyment i transkrypcja rozmowy
+  (`PhoneCallInput::$sentiment`, `$transcription`) oraz tekst i sposób otwarcia
+  linku pola URL (`customFields()->updateLink()`) od **2.18.0**. Wywołanie
   funkcji, której CRM instalacji jeszcze nie ma, kończy się `FeatureNotSupportedException`
   (501); trasy spoza wersji API - błędem 404, a nieznany na starszej instancji
   parametr zapytania - błędem 400.

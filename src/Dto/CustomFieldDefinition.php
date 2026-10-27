@@ -55,6 +55,27 @@ final readonly class CustomFieldDefinition
     }
 
     /**
+     * Czy to pole typu URL (link). W odczycie `type` to typ kolumny CRM (`VARCHAR` - ten sam dla
+     * URL, e-maila, telefonu i domeny), rodzaj pola rozróżnia `config.validation`.
+     */
+    public function isLink(): bool
+    {
+        return ($this->config['validation'] ?? null) === 'url';
+    }
+
+    /** Tekst linku pola URL (pusty = CRM pokazuje sam adres); null przy polu innego typu. */
+    public function linkAnchor(): ?string
+    {
+        return $this->isLink() ? (Cast::string($this->config['anchor'] ?? null) ?? '') : null;
+    }
+
+    /** Sposób otwarcia linku pola URL (`CustomFieldInput::LINK_*`); null przy polu innego typu. */
+    public function linkTarget(): ?string
+    {
+        return $this->isLink() ? Cast::string($this->config['target'] ?? null) : null;
+    }
+
+    /**
      * Pełny, surowy rekord z API.
      *
      * @return array<string, mixed>

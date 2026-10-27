@@ -9,6 +9,7 @@ use TillioCrm\Api\Dto\Contact;
 use TillioCrm\Api\Dto\Contractor;
 use TillioCrm\Api\Dto\PhoneCall;
 use TillioCrm\Api\Dto\PhoneCallInput;
+use TillioCrm\Api\Dto\PhoneCallTranscriptSegment;
 use TillioCrm\Api\Dto\PhoneLookupResult;
 use TillioCrm\Api\Dto\TextMessage;
 use TillioCrm\Api\Dto\TextMessageInput;
@@ -118,6 +119,61 @@ final class TelephonyResourcesTest extends TestCase
         self::assertSame(['status' => 'answered', 'duration' => 60], $request->body);
         self::assertInstanceOf(PhoneCall::class, $call);
         self::assertSame(60, $call->duration);
+    }
+
+    public function testPhoneCallUpdateSendsSentimentAndTranscription(): void
+    {
+        // Kontrakt 2.18.0: drugie doręczenie po analizie AI - sentyment ze skali 1-3
+        // i transkrypcja jako lista wypowiedzi; endSec pomijany, gdy go nie ma.
+        $this->transport->queueJson(200, '{"data":{"id":5,"sentiment":"positive","transcription":[{"speaker":"agent","startSec":0,"endSec":4,"text":"Dzień dobry"},{"speaker":null,"startSec":4,"endSec":null,"text":"Słucham"}]}}');
+
+        $call = $this->client()->phoneCalls()->update(5, new PhoneCallInput(
+            sentiment: PhoneCallInput::sentimentFromLevel('3'),
+            transcription: [
+                new PhoneCallTranscriptSegment(PhoneCallTranscriptSegment::SPEAKER_AGENT, 0, 'Dzień dobry'),
+                ['speaker' => 'client', 'startSec' => 4.2, 'endSec' => 6, 'text' => 'Słucham'],
+            ],
+        ));
+
+        self::assertSame([
+            'sentiment' => 'positive',
+            'transcription' => [
+                ['speaker' => 'agent', 'startSec' => 0, 'text' => 'Dzień dobry'],
+                ['speaker' => 'client', 'startSec' => 4.2, 'endSec' => 6, 'text' => 'Słucham'],
+            ],
+        ], $this->transport->lastRequest()->body);
+
+        self::assertSame(PhoneCallInput::SENTIMENT_POSITIVE, $call->sentiment);
+        self::assertNotNull($call->transcription);
+        self::assertCount(2, $call->transcription);
+        self::assertSame('agent', $call->transcription[0]->speaker);
+        self::assertSame(4, $call->transcription[0]->endSec);
+        // Strona nieustalona (rozmowy natywne bez wskazania klienta) zostaje null.
+        self::assertNull($call->transcription[1]->speaker);
+        self::assertNull($call->transcription[1]->endSec);
+    }
+
+    public function testPhoneCallSentimentFromLevelMapsScaleAndRejectsOutOfRange(): void
+    {
+        self::assertSame('negative', PhoneCallInput::sentimentFromLevel(1));
+        self::assertSame('neutral', PhoneCallInput::sentimentFromLevel('2'));
+        self::assertSame('positive', PhoneCallInput::sentimentFromLevel(3));
+        self::assertNull(PhoneCallInput::sentimentFromLevel(0));
+        self::assertNull(PhoneCallInput::sentimentFromLevel(null));
+        self::assertNull(PhoneCallInput::sentimentFromLevel('abc'));
+    }
+
+    public function testPhoneCallListRecordHasNoTranscription(): void
+    {
+        // Lista nie niesie transkrypcji - null, nie pusta lista.
+        $this->transport->queueJson(200, '{"data":[{"id":5,"sentiment":"neutral"}],"pagination":{"page":1,"limit":25,"total":1,"pages":1}}');
+
+        $call = $this->client()->phoneCalls()->list(['sentiment' => 'neutral'])->first();
+
+        self::assertSame(['sentiment' => 'neutral'], $this->transport->lastRequest()->query);
+        self::assertNotNull($call);
+        self::assertSame('neutral', $call->sentiment);
+        self::assertNull($call->transcription);
     }
 
     public function testTextMessagesListMapsPageAndSendsQuery(): void
