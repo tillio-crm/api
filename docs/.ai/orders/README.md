@@ -2,7 +2,8 @@
 
 Realizacja polecen uzytkownika dotyczacych zamowien: wystawianie zamowienia
 kontrahentowi z pozycjami z katalogu, aktualizacja metadanych (status, daty,
-notatka), odczyt. Pisane dla asystenta AI - zaklada wspolne wzorce z
+notatka), wymiana pozycji i zmiana waluty (sync z ERP), odczyt. Pisane dla
+asystenta AI - zaklada wspolne wzorce z
 [ai_integration.md](../ai_integration.md) (zwlaszcza `resolveUserId()`,
 `findByName()`, `WriteResult` i "Zlota zasada: nie zgaduj id").
 
@@ -21,10 +22,10 @@ Zapis idzie przez `OrderInput` (`src/Dto/OrderInput.php`), pozycje przez
 
 | pole | typ | po co (skad wziac) |
 |---|---|---|
-| `products` | `list<OrderProductInput>` | Pozycje zamowienia. WYMAGANE i NIEPUSTE przy tworzeniu. Budujesz z pozycji katalogowych (patrz OrderProductInput nizej). |
+| `products` | `list<OrderProductInput>` | Pozycje zamowienia. WYMAGANE i NIEPUSTE przy tworzeniu. W `update()` to PELNY stan pozycji (wymiana: pozycja z `id` aktualizowana, bez `id` dodawana, nieobecna USUWANA); pominiete = pozycje bez zmian. Budujesz z pozycji katalogowych (patrz OrderProductInput nizej). |
 | `orderStatusId` | `int` | Status zamowienia. Z `dictionaries()->orderStatuses()`, dopasuj nazwe przez `findByName()`. Pominiete = domyslny status instancji. |
 | `note` | `string` | Notatka/uwagi do zamowienia. Tekst wprost od uzytkownika. |
-| `currency` | `string` | Kod waluty (np. `PLN`, `EUR`). Lista dostepnych: `dictionaries()->currencies()`. Pominiete = domyslna waluta instancji. TYLKO przy tworzeniu. |
+| `currency` | `string` | Kod waluty (np. `PLN`, `EUR`). Lista dostepnych: `dictionaries()->currencies()`. Pominiete = domyslna waluta instancji. W `update()` (API >= 2.19.0) WYLACZNIE razem z pelnym `products` z cenami juz w nowej walucie; sama = 422 `body.fieldNotUpdatable`; rowna obecnej = bez zmiany. |
 | `place` | `string` | Miejsce wystawienia. Tekst wprost. |
 | `orderDate` | `string` | Data zamowienia, ISO 8601. Policz i sformatuj `DATE_ATOM`. |
 | `validUntil` | `string` | Waznosc oferty/zamowienia, ISO 8601. |
@@ -39,6 +40,7 @@ Zapis idzie przez `OrderInput` (`src/Dto/OrderInput.php`), pozycje przez
 
 | pole | typ | po co (skad wziac) |
 |---|---|---|
+| `id` | `int` | TYLKO w `update()`: id istniejacej pozycji (`Order::$products[].id` z odczytu) - pozycja jest aktualizowana zamiast tworzona od nowa. Pomin przy tworzeniu i dla nowych pozycji. |
 | `productId` | `int` | Id produktu z katalogu. WYMAGANE `productId` ALBO `productSku`. Z `products()->list([...])` po nazwie. |
 | `productSku` | `string` | SKU produktu z katalogu. Alternatywa dla `productId`. Nieznane SKU = 422 - produkt musi wczesniej istniec (`products()->create()`). |
 | `customName` | `string` | Nadpisuje nazwe pozycji wzieta z katalogu. NIE tworzy pozycji wolnej - pozycja i tak wskazuje realny produkt. |
@@ -67,9 +69,16 @@ Konsekwencje dla Ciebie:
 
 - Uzytkownik poda nazwe firmy, nie `contractorId` - najpierw rozwiaz kontrahenta
   (patrz playbook kontrahentow), potem produkty na `productId`/`productSku`.
-- `update(id, OrderInput)` (`PUT /v2/orders/{id}`) zmienia TYLKO metadane
-  (status, daty, notatke, numer). NIE edytuje pozycji zamowienia - `products`
-  podane przy update nie sa sciezka do wstecznej korekty pozycji, nie licz na to.
+- `update(id, OrderInput)` (`PUT /v2/orders/{id}`) zmienia naglowek czesciowo
+  (status, daty, notatke, numer - tylko wyslane pola). `products` w update to
+  PELNY stan pozycji: pozycja z `id` (z `Order::$products[].id`) jest
+  aktualizowana, bez `id` dodawana, a istniejaca pozycja NIEOBECNA w liscie
+  USUWANA; `totalAmount` jest przeliczany. Pominiete `products` = pozycje
+  nietkniete.
+- Zmiana waluty (API >= 2.19.0): `currency` inna niz obecna WYLACZNIE razem
+  z pelnym `products` z cenami juz w nowej walucie - CRM nie przelicza kursow.
+  Sama `currency` = 422 `body.fieldNotUpdatable` i nic z zadania sie nie
+  zapisuje; `currency` rowna obecnej = bez zmiany.
 - Kwoty (`quantity`, `price`, `taxRate`, `discount`, `totalAmount`) to STRINGI
   dziesietne, nie floaty - przekazuj je jako `'2'`, `'149.00'`, nie `2`, `149.0`.
 - Zamowienia NIE maja pol niestandardowych - do wyszukania konkretnego sluzy
@@ -177,8 +186,8 @@ $client->orders()->create($contractorId, new OrderInput(
 
 ### Aktualizacja metadanych (status, daty, notatka)
 
-`update()` zmienia metadane, NIE pozycje. Typowe: przesuniecie statusu albo
-dopisanie daty wyslania.
+Bez `products` `update()` zmienia tylko naglowek - pozycje zostaja nietkniete.
+Typowe: przesuniecie statusu albo dopisanie daty wyslania.
 
 ```php
 use TillioCrm\Api\Dto\OrderInput;
@@ -188,6 +197,33 @@ $client->orders()->update($orderId, new OrderInput(
     orderStatusId: $statusId,
     sentDate: (new DateTimeImmutable('now'))->format(DATE_ATOM),
     note: 'Wyslano kurierem, numer przesylki 123.',
+));
+```
+
+### Wymiana pozycji i zmiana waluty (sync z ERP)
+
+Gdy zrodlem prawdy jest system zewnetrzny (np. Optima), nadpisz zamowienie
+jednym `update()` z PELNYM stanem pozycji. Pozycje, ktore maja zostac, wysylaj
+z ich `id` (z odczytu) - bez `id` powstana od nowa, a stare znikna. Nowa waluta
+TYLKO razem z `products` z cenami juz w tej walucie (API >= 2.19.0); CRM nie
+przelicza kursow, wiec ceny przeliczasz po stronie ERP.
+
+```php
+use TillioCrm\Api\Dto\OrderInput;
+use TillioCrm\Api\Dto\OrderProductInput;
+
+$order = $client->orders()->get($orderId);
+$existingLineId = $order->products[0]->id ?? null;
+
+$client->orders()->update($orderId, new OrderInput(
+    // zamowienie bylo w USD; ERP przestawil je na PLN i przeliczyl ceny
+    currency: 'PLN',
+    products: [
+        // pozycja istniejaca: id z odczytu + cena juz w PLN
+        new OrderProductInput(productSku: 'LIC-PRO', quantity: '2', price: '249.00', id: $existingLineId),
+        // pozycja nowa: bez id
+        new OrderProductInput(productSku: 'SUPPORT-1Y', quantity: '1', price: '990.00'),
+    ],
 ));
 ```
 
@@ -222,12 +258,14 @@ $client->orders()->create($contractorId, new OrderInput(
 - **Kazda pozycja MUSI miec `productId` albo `productSku`.** Nie ma pozycji
   wolnych - `customName` tylko nadpisuje nazwe realnego produktu. Nieznane
   SKU = 422; produkt musi wczesniej istniec w katalogu.
-- **`update()` nie edytuje pozycji.** Zmienia metadane (status, daty, notatke,
-  numer). Nie licz na wsteczna korekte pozycji przez update.
-- **`currency` tylko przy tworzeniu.** Pozycje maja ceny w walucie z utworzenia -
-  `update()` z `currency` to 422 `body.fieldNotUpdatable` i NIC z tego zadania
-  sie nie zapisuje (API >= 2.14.0; wczesniej 200, a waluta zostawala stara).
-  Nie dokladaj `currency` do aktualizacji statusu czy dat.
+- **`products` w `update()` to PELNY stan pozycji.** Lista bez ktorejs
+  z istniejacych pozycji USUWA ja; pozycja bez `id` powstaje od nowa. Do zmiany
+  samego naglowka nie wysylaj `products` wcale.
+- **`currency` w `update()` tylko razem z `products`.** CRM nie przelicza
+  kursow: nowa waluta wymaga cen juz w tej walucie. Sama `currency` to 422
+  `body.fieldNotUpdatable` i NIC z tego zadania sie nie zapisuje (API
+  2.14.0-2.18.0: zawsze 422; od 2.19.0: 200 razem z `products`). Nie dokladaj
+  `currency` do aktualizacji statusu czy dat.
 - **Kwoty to STRINGI dziesietne**, nie floaty. `'149.00'`, nie `149.0`. Dotyczy
   `quantity`, `price`, `taxRate`, `discount`, a przy odczycie `totalAmount`.
 - **`contractorId` nie jest polem `OrderInput`** - to pierwszy argument

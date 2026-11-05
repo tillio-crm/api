@@ -10,6 +10,10 @@ namespace TillioCrm\Api\Dto;
  * produkt najpierw przez `POST /v2/products`). `customName` tylko NADPISUJE
  * nazwę z katalogu - nie tworzy pozycji wolnej. Ilości i kwoty jako stringi
  * dziesiętne.
+ *
+ * `id` tylko w `orders()->update()`: pozycja z `id` (z `Order::$products[].id`)
+ * jest aktualizowana, bez `id` dodawana, a istniejąca pozycja nieobecna
+ * w liście usuwana - `products` w PUT to PEŁNY stan pozycji.
  */
 final readonly class OrderProductInput implements Arrayable
 {
@@ -22,12 +26,14 @@ final readonly class OrderProductInput implements Arrayable
         public ?string $discount = null,
         public ?string $taxRate = null,
         public ?int $measureId = null,
+        public ?int $id = null,
     ) {
     }
 
     public function toArray(): array
     {
         return Cast::withoutNulls([
+            'id' => $this->id,
             'productId' => $this->productId,
             'productSku' => $this->productSku,
             'customName' => $this->customName,

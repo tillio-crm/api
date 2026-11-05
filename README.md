@@ -68,7 +68,9 @@ jednorazowe hasła) są zneutralizowane w kodzie, zanim żądanie w ogóle wyjdz
   (`customFields()->appendOptions()`) i przypisanie pola do wszystkich podtypów
   (`assignedTo: 'all'`) od **2.17.0**, sentyment i transkrypcja rozmowy
   (`PhoneCallInput::$sentiment`, `$transcription`) oraz tekst i sposób otwarcia
-  linku pola URL (`customFields()->updateLink()`) od **2.18.0**. Wywołanie
+  linku pola URL (`customFields()->updateLink()`) od **2.18.0**, zmiana waluty
+  zamówienia razem z pełnym stanem pozycji (`orders()->update()` z `currency`
+  i `products`, `OrderProductInput::$id`) od **2.19.0**. Wywołanie
   funkcji, której CRM instalacji jeszcze nie ma, kończy się `FeatureNotSupportedException`
   (501); trasy spoza wersji API - błędem 404, a nieznany na starszej instancji
   parametr zapytania - błędem 400.

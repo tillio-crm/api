@@ -74,9 +74,12 @@ final readonly class Orders extends Resource
     }
 
     /**
-     * `PUT /v2/orders/{id}` - aktualizacja metadanych zamówienia. `currency`
-     * ustala się tylko przy tworzeniu - od API 2.14.0 jej obecność to 422
-     * `body.fieldNotUpdatable` i nic z tego żądania się nie zapisuje.
+     * `PUT /v2/orders/{id}` - nagłówek częściowo (tylko wysłane pola);
+     * `products` = PEŁNY stan pozycji (pozycja z `id` aktualizowana, bez `id`
+     * dodawana, nieobecna usuwana), pominięte = pozycje bez zmian. `currency`
+     * inna niż obecna wyłącznie razem z `products` z cenami już w nowej walucie
+     * (API >= 2.19.0) - sama to 422 `body.fieldNotUpdatable` i nic z tego
+     * żądania się nie zapisuje.
      *
      * @param OrderInput|array<string, mixed> $input
      */

@@ -5,6 +5,23 @@ z perspektywy konsumenta SDK; wpisy grupowane per wydanie (przy 0.1.0 wszystko
 jest nowe, od kolejnych wydań sekcje Dodane/Zmienione/Naprawione).
 Wersjonowanie: semver (przed 1.0.0 zmiany łamiące = minor).
 
+## [Unreleased]
+
+### Dodane
+
+- `OrderProductInput::$id` - id istniejącej pozycji przy `orders()->update()`:
+  pozycja z `id` jest aktualizowana, bez `id` dodawana, a pozycja nieobecna
+  w liście usuwana (`products` w PUT to PEŁNY stan pozycji).
+
+### Zmienione
+
+- Dokumentacja zamówień (`docs/.ai/orders/README.md`, `docs/examples/orders.md`,
+  PHPDoc `OrderInput` i `Orders::update()`) opisuje realny kontrakt
+  `PUT /v2/orders/{id}`: `products` w `update()` wymienia pozycje w całości,
+  a nie, jak twierdziła dotąd, „zmienia tylko metadane”. Zmiana waluty:
+  `currency` inna niż obecna WYŁĄCZNIE razem z `products` z cenami już w nowej
+  walucie (API >= 2.19.0); sama `currency` nadal 422 `body.fieldNotUpdatable`.
+
 ## [0.6.0] - 2026-10-27
 
 Dostosowanie do kontraktu API 2.18.0: sentyment i transkrypcja rozmowy

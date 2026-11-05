@@ -244,6 +244,19 @@ final class MasterDataDtoTest extends TestCase
         ], $input->toArray());
     }
 
+    public function testOrderInputCarriesLineIdAndCurrencyForUpdate(): void
+    {
+        // PUT /v2/orders/{id}: products to PELNY stan pozycji - id wskazuje pozycje
+        // do aktualizacji (bez id = nowa), a currency idzie razem z products (API >= 2.19.0).
+        self::assertSame([
+            'products' => [['id' => 1201, 'productSku' => 'LIC-PRO', 'quantity' => '2', 'price' => '249.00']],
+            'currency' => 'PLN',
+        ], (new OrderInput(
+            products: [new OrderProductInput(productSku: 'LIC-PRO', quantity: '2', price: '249.00', id: 1201)],
+            currency: 'PLN',
+        ))->toArray());
+    }
+
     public function testContactInputCarriesContractorIds(): void
     {
         // contractorId dopina kartoteke jako glowna, contractorIds ZASTEPUJE cala

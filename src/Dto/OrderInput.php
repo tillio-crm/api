@@ -14,10 +14,13 @@ namespace TillioCrm\Api\Dto;
 final readonly class OrderInput implements Arrayable
 {
     /**
-     * @param list<OrderProductInput|array<string, mixed>>|null $products      pozycje zamówienia
-     * @param string|null                                       $currency      waluta (ISO 4217) - TYLKO przy tworzeniu: w `update()`
-     *                                                                         to 422 i nic z tego żądania się nie zapisuje
-     *                                                                         (od API 2.14.0; wcześniej 200 ze starą walutą)
+     * @param list<OrderProductInput|array<string, mixed>>|null $products      pozycje zamówienia; w `update()` PEŁNY stan
+     *                                                                         pozycji (z `id` = aktualizacja, bez `id` = nowa,
+     *                                                                         nieobecna = usunięta), null = pozycje bez zmian
+     * @param string|null                                       $currency      waluta (ISO 4217); w `update()` inna niż obecna
+     *                                                                         WYŁĄCZNIE razem z `$products` z cenami już w nowej
+     *                                                                         walucie (API >= 2.19.0) - sama to 422 i nic z tego
+     *                                                                         żądania się nie zapisuje (API 2.14.0-2.18.0: zawsze 422)
      * @param string|null                                       $createdAt     data utworzenia przy
      *                                                                         imporcie historycznym
      * @param int|null                                          $creatorUserId tylko przy tworzeniu
