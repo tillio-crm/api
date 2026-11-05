@@ -57,7 +57,9 @@ final readonly class Orders extends Resource
 
     /**
      * `POST /v2/contractors/{contractorId}/orders` - nowe zamówienie dla
-     * kartoteki. Wymagana niepusta lista `products`.
+     * kartoteki. Wymagana niepusta lista `products`. `customField` (klucz =>
+     * wartość, API >= 2.20.0) zapisuje się po rekordzie - błąd pojedynczego pola
+     * ląduje w `WriteResult::$warnings`, nie w wyjątku.
      *
      *     $client->orders()->create(42, new OrderInput(
      *         products: [new OrderProductInput(productSku: 'LIC-PRO', quantity: '2')],
@@ -79,7 +81,8 @@ final readonly class Orders extends Resource
      * dodawana, nieobecna usuwana), pominięte = pozycje bez zmian. `currency`
      * inna niż obecna wyłącznie razem z `products` z cenami już w nowej walucie
      * (API >= 2.19.0) - sama to 422 `body.fieldNotUpdatable` i nic z tego
-     * żądania się nie zapisuje.
+     * żądania się nie zapisuje. `customField` (API >= 2.20.0): zapisywane są
+     * tylko wysłane klucze.
      *
      * @param OrderInput|array<string, mixed> $input
      */

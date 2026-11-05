@@ -257,6 +257,15 @@ final class MasterDataDtoTest extends TestCase
         ))->toArray());
     }
 
+    public function testOrderInputCarriesCustomFieldValues(): void
+    {
+        // Pola niestandardowe zamowienia (API >= 2.20.0): mapa klucz => wartosc jak w innych encjach.
+        self::assertSame(
+            ['note' => 'Z Optimy', 'customField' => ['order_str_1' => 'ZAM/OPTIMA/2024/00123']],
+            (new OrderInput(note: 'Z Optimy', customField: ['order_str_1' => 'ZAM/OPTIMA/2024/00123']))->toArray(),
+        );
+    }
+
     public function testContactInputCarriesContractorIds(): void
     {
         // contractorId dopina kartoteke jako glowna, contractorIds ZASTEPUJE cala

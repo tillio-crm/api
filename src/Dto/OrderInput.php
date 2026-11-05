@@ -25,6 +25,12 @@ final readonly class OrderInput implements Arrayable
      *                                                                         imporcie historycznym
      * @param int|null                                          $creatorUserId tylko przy tworzeniu
      *                                                                         (import historii)
+     * @param array<string, mixed>|null                         $customField   pola niestandardowe zamówienia:
+     *                                                                         klucz => wartość (klucze z
+     *                                                                         `customFields()->list('order')`),
+     *                                                                         API >= 2.20.0; na starszym CRM
+     *                                                                         niepusta mapa = 501
+     *                                                                         (`FeatureNotSupportedException`)
      */
     public function __construct(
         public ?array $products = null,
@@ -40,6 +46,7 @@ final readonly class OrderInput implements Arrayable
         public ?string $sentDate = null,
         public ?string $createdAt = null,
         public ?int $creatorUserId = null,
+        public ?array $customField = null,
     ) {
     }
 
@@ -65,6 +72,7 @@ final readonly class OrderInput implements Arrayable
             'number' => $this->number,
             'foreignNumber' => $this->foreignNumber,
             'sentDate' => $this->sentDate,
+            'customField' => $this->customField,
             'createdAt' => $this->createdAt,
             'creatorUserId' => $this->creatorUserId,
         ]);

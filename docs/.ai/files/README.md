@@ -88,7 +88,7 @@ foreach ($client->notes()->attachments($noteId) as $att) {
 Pole niestandardowe typu FILE to OSOBNY mechanizm - jego wartości NIE zapisuje
 się przez `customField` w PUT rekordu (core je odrzuca). Służą do tego trzy
 dedykowane metody. Encje z polami plikowymi: `contractor`, `contact`, `note`,
-`lead`, `ticket`, `service`, `project`, `pipeline` (zadania NIE mają tej końcówki).
+`lead`, `ticket`, `service`, `project`, `pipeline`, `order` (od API 2.20.0; zadania NIE mają tej końcówki).
 
 ```php
 use TillioCrm\Api\Transport\FileUpload;

@@ -2,8 +2,9 @@
 
 Tworzenie jest podpięte pod kartotekę. `update()` zmienia nagłówek częściowo
 (status, daty, notatkę), a `products` w `update()` to PEŁNY stan pozycji
-(wymiana); walutę zmienia się tylko razem z pozycjami (API >= 2.19.0). Bez pól
-niestandardowych - do wyszukiwania służy `number`.
+(wymiana); walutę zmienia się tylko razem z pozycjami (API >= 2.19.0). Pola
+niestandardowe zamówienia (`customField`) od API 2.20.0 - wcześniej do
+wyszukiwania służył tylko `number`.
 
 ```php
 use TillioCrm\Api\Dto\OrderInput;

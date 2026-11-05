@@ -5,6 +5,24 @@ z perspektywy konsumenta SDK; wpisy grupowane per wydanie (przy 0.1.0 wszystko
 jest nowe, od kolejnych wydań sekcje Dodane/Zmienione/Naprawione).
 Wersjonowanie: semver (przed 1.0.0 zmiany łamiące = minor).
 
+## [Unreleased]
+
+Dostosowanie do kontraktu API 2.20.0: pola niestandardowe zamówień oraz kolor
+i kolejność statusów zamówień. Minor - nowe pole DTO.
+
+### Dodane
+- `OrderInput::$customField` - pola niestandardowe zamówienia w `orders()->create()`
+  i `orders()->update()`; definicje przez `customFields()->list('order')` i
+  `customFields()->create()` z `entity: 'order'` (API >= 2.20.0; na starszym CRM
+  niepusta mapa kończy się `FeatureNotSupportedException`).
+- Statusy zamówień: `color` i `order` w `dictionaries()->createOrderStatus()`
+  i `updateOrderStatus()` (`DictionaryEntryInput` już je miał), `color` w odczycie
+  `orderStatuses()` - API >= 2.20.0, starszy CRM = 501 dla tych dwóch pól.
+
+### Zmienione
+- Dokumentacja zamówień nie twierdzi już, że zamówienia nie mają pól
+  niestandardowych - filtr `customField` w `orders()->list()` działa jak w innych encjach.
+
 ## [0.7.0] - 2026-11-05
 
 Dostosowanie do kontraktu API 2.19.0: zmiana waluty zamówienia razem z pełnym

@@ -30,9 +30,10 @@ Zapis idzie przez `OrderInput` (`src/Dto/OrderInput.php`), pozycje przez
 | `orderDate` | `string` | Data zamowienia, ISO 8601. Policz i sformatuj `DATE_ATOM`. |
 | `validUntil` | `string` | Waznosc oferty/zamowienia, ISO 8601. |
 | `deliveryDate` | `string` | Data dostawy/realizacji, ISO 8601. |
-| `number` | `string` | Numer dokumentu. Zwykle nadaje CRM - ustawiaj tylko przy imporcie/gdy uzytkownik podal wlasny. To po tym polu wyszukuje sie zamowienia (nie ma pol niestandardowych). |
+| `number` | `string` | Numer dokumentu. Zwykle nadaje CRM - ustawiaj tylko przy imporcie/gdy uzytkownik podal wlasny. To po tym polu wyszukuje sie zamowienia (albo po polu niestandardowym, API >= 2.20.0). |
 | `foreignNumber` | `int` | Numer sekwencyjny/obcy (klucz dla ERP). Ustawiaj przy integracji z systemem zewnetrznym. |
 | `sentDate` | `string` | Data wyslania do klienta, ISO 8601. |
+| `customField` | `array` | Pola niestandardowe zamowienia, mapa klucz => wartosc; klucze z `customFields()->list('order')`. API >= 2.20.0 - na starszym CRM niepusta mapa = `FeatureNotSupportedException` (501). |
 | `createdAt` | `string` | Data utworzenia - TYLKO przy imporcie historycznym, nie przy biezacym zamowieniu. |
 | `creatorUserId` | `int` | Autor - TYLKO przy imporcie historii. Przez `resolveUserId()`. |
 
@@ -81,8 +82,9 @@ Konsekwencje dla Ciebie:
   zapisuje; `currency` rowna obecnej = bez zmiany.
 - Kwoty (`quantity`, `price`, `taxRate`, `discount`, `totalAmount`) to STRINGI
   dziesietne, nie floaty - przekazuj je jako `'2'`, `'149.00'`, nie `2`, `149.0`.
-- Zamowienia NIE maja pol niestandardowych - do wyszukania konkretnego sluzy
-  filtr `number` albo `foreignNumber`.
+- Pola niestandardowe zamowien od API 2.20.0 (`customField` w DTO, filtr
+  `['customField' => ['order_str_1' => 'X']]` w `list()`); na starszym API/CRM
+  do wyszukania konkretnego zamowienia sluzy `number` albo `foreignNumber`.
 
 ## Mapowanie intencji
 
@@ -231,7 +233,8 @@ $client->orders()->update($orderId, new OrderInput(
 
 ```php
 // number = pelny numer dokumentu; foreignNumber = numer sekwencyjny (pewny
-// klucz dla ERP). Zamowienia nie maja pol niestandardowych - to jedyne klucze.
+// klucz dla ERP). Od API 2.20.0 dochodzi pole niestandardowe (np. "Optima ID"),
+// adresowane kluczem z customFields()->list('order').
 $order = $client->orders()->list(['number' => 'ZAM/2026/07', 'limit' => 1])->first();
 ```
 
@@ -270,8 +273,9 @@ $client->orders()->create($contractorId, new OrderInput(
   `quantity`, `price`, `taxRate`, `discount`, a przy odczycie `totalAmount`.
 - **`contractorId` nie jest polem `OrderInput`** - to pierwszy argument
   `create()`. Rozwiaz kontrahenta z nazwy przed zapisem.
-- **Brak pol niestandardowych.** Do wyszukania konkretnego zamowienia uzyj
-  `number` albo `foreignNumber`, nie `customField`.
+- **Pola niestandardowe od API 2.20.0.** Na starszym API `customField`
+  zamowienia nie istnieje - do wyszukania uzyj `number` albo `foreignNumber`;
+  na nowszym najpierw `customFields()->list('order')` po klucz, nigdy etykieta.
 - **`orderStatusId` z nazwy bywa null**, gdy nazwa jest spoza slownika instancji
   - wtedy dopytaj, nie wstawiaj przypadkowego id.
 - **`create()` zwraca `WriteResult`** (`->id`, `->created`, `->warnings`),

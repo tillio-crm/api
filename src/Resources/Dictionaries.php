@@ -326,7 +326,9 @@ final readonly class Dictionaries extends Resource
     }
 
     /**
-     * `POST /v2/order/statuses` - nowy status zamówienia.
+     * `POST /v2/order/statuses` - nowy status zamówienia. `name` zawsze; `color`
+     * (#rrggbb) i `order` (kolejność w panelu, wyższa wyżej) od API 2.20.0 - na
+     * starszym CRM te dwa pola kończą się `FeatureNotSupportedException` (501).
      *
      * @param DictionaryEntryInput|array<string, mixed> $input
      */
@@ -336,7 +338,8 @@ final readonly class Dictionaries extends Resource
     }
 
     /**
-     * `PUT /v2/order/statuses/{id}` - aktualizacja statusu zamówienia.
+     * `PUT /v2/order/statuses/{id}` - aktualizacja statusu zamówienia (`name`,
+     * a od API 2.20.0 także `color` i `order`; starszy CRM = 501 dla tych dwóch).
      *
      * @param DictionaryEntryInput|array<string, mixed> $input
      */

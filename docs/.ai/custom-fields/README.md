@@ -185,7 +185,7 @@ $client->customFields()->deleteFieldFile('contractor', 42, 'contractor_file_2');
 ```
 
 Encje z polami FILE: `contractor`, `contact`, `note`, `lead`, `ticket`,
-`service`, `project`, `pipeline` (zadania NIE mają tej końcówki). Pełny opis:
+`service`, `project`, `pipeline`, `order` (od API 2.20.0; zadania NIE mają tej końcówki). Pełny opis:
 [../files/README.md](../files/README.md).
 
 ## Custom field jako klucz deduplikacji
