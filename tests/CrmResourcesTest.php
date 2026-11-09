@@ -156,6 +156,31 @@ final class CrmResourcesTest extends TestCase
         self::assertSame(['pipelineItemId' => null], $request->body);
     }
 
+    public function testTaskTagsInWriteReadAndFilter(): void
+    {
+        // Kontrakt 2.21.0: taskTagIds w POST/PUT i odczycie, filtr taskTagId.
+        // `taskTagIds: []` to wartość jawna (PUT zdejmuje wszystkie tagi) - musi
+        // dojechać w body, pomijamy tylko null.
+        self::assertSame(
+            ['title' => 'Wdrożenie', 'assignedUserIds' => [7], 'taskTagIds' => [32, 134]],
+            (new TaskInput(title: 'Wdrożenie', assignedUserIds: [7], taskTagIds: [32, 134]))->toArray(),
+        );
+        self::assertSame(['taskTagIds' => []], (new TaskInput(taskTagIds: []))->toArray());
+
+        $this->transport
+            ->queueJson(200, '{"data":{"id":7,"title":"Wdrożenie","assignedUserIds":[7],"taskTagIds":[134,32],"customField":{}}}')
+            ->queueJson(200, '{"data":[{"id":7,"taskTagIds":[134]},{"id":8}],"pagination":{"page":1,"limit":100,"total":2,"pages":1}}');
+
+        $task = $this->client()->tasks()->get(7);
+        self::assertSame([134, 32], $task->taskTagIds);
+
+        $page = $this->client()->tasks()->list(['taskTagId' => 134]);
+        self::assertSame(['taskTagId' => '134'], $this->transport->lastRequest()->query);
+        self::assertSame([134], $page->rows[0]->taskTagIds);
+        // Instancja < 2.21.0 nie zwraca pola - DTO daje pustą listę, nie wyjątek.
+        self::assertSame([], $page->rows[1]->taskTagIds);
+    }
+
     public function testLeadProjectPipelineItemAndService(): void
     {
         $this->transport

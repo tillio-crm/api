@@ -512,7 +512,9 @@ final readonly class Dictionaries extends Resource
     }
 
     /**
-     * `GET /v2/task/tags` - tagi zadań.
+     * `GET /v2/task/tags` - tagi zadań. Mapują `Task::$taskTagIds`, pole
+     * `taskTagIds` w zapisie zadania i filtr listy `taskTagId` (API >= 2.21.0)
+     * oraz `tagIds` szablonu zadania.
      *
      * @return list<DictionaryEntry>
      */

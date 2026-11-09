@@ -5,6 +5,21 @@ z perspektywy konsumenta SDK; wpisy grupowane per wydanie (przy 0.1.0 wszystko
 jest nowe, od kolejnych wydań sekcje Dodane/Zmienione/Naprawione).
 Wersjonowanie: semver (przed 1.0.0 zmiany łamiące = minor).
 
+## [Unreleased]
+
+Dostosowanie do kontraktu API 2.21.0: tagi zadań. Minor - nowe pola DTO.
+
+### Dodane
+- `Task::$taskTagIds` - tagi zadania w odczycie (`tasks()->list()`, `iterate()`,
+  `get()`), id ze słownika `dictionaries()->taskTags()`. Na instancji < 2.21.0
+  pole wychodzi puste. Nowy argument stoi na końcu konstruktora, więc kod
+  tworzący `Task` pozycyjnie działa bez zmian.
+- `TaskInput::$taskTagIds` - tagi w `tasks()->create()` (przypinane razem
+  z zadaniem) i `tasks()->update()` (KOMPLETNA lista docelowa, `[]` zdejmuje
+  wszystkie). Nieznany tag to 422 i nic się nie zapisuje (API >= 2.21.0).
+- Filtr listy `taskTagId` w `tasks()->list()` i `iterate()` (jeden tag na żądanie,
+  API >= 2.21.0 - starsza instancja odpowie 400).
+
 ## [0.8.0] - 2026-11-06
 
 Dostosowanie do kontraktu API 2.20.0: pola niestandardowe zamówień oraz kolor

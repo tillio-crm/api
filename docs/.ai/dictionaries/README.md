@@ -145,7 +145,7 @@ Pogrupowane wg domeny. Kolumna "zapis" mowi, czy slownik ma `createXxx`/
 | metoda | zapis | po co |
 |---|---|---|
 | `taskStatuses()` | + | statusy zadan |
-| `taskTags()` | + | tagi zadan (bez `#` - CRM doda sam) |
+| `taskTags()` | + | tagi zadan (bez `#` - CRM doda sam); `Task::$taskTagIds`, zapis `taskTagIds`, filtr `taskTagId` (API >= 2.21.0) |
 
 ### Uzytkownicy
 

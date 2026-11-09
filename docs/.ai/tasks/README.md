@@ -14,7 +14,8 @@ Zadanie tworzy się przez `TaskInput`. Przy tworzeniu API WYMAGA:
 
 Reszta jest opcjonalna: `description`, `priority`, `ownerUserId`,
 `contractorId`, `contactId`, `pipelineItemId`, `leadId`, `startDate`, `dueDate`,
-`taskStatusId`, `customField`. Pełna lista pól: `src/Dto/TaskInput.php`.
+`taskStatusId`, `taskTagIds` (API >= 2.21.0), `customField`. Pełna lista pól:
+`src/Dto/TaskInput.php`.
 
 Kluczowa konsekwencja dla Ciebie: użytkownik NIGDY nie poda `assignedUserIds`
 wprost - poda nazwiska. Twoim pierwszym krokiem jest zawsze zamiana nazwisk
@@ -31,6 +32,8 @@ na id (patrz niżej).
 | "osoba kontaktowa Jan Kowalski" | `contactId` (API >= 2.8.0) | `contacts()->list([...])`, dopasuj osobę |
 | "przy szansie Oferta dla Acme" | `pipelineItemId` | `pipelineItems()->list([...])`, dopasuj szansę (playbook pipeline-items) |
 | "status W toku" | `taskStatusId` | `dictionaries()->taskStatuses()`, dopasuj nazwę |
+| "otaguj jako #bug" | `taskTagIds` (API >= 2.21.0) | `findByName($client->dictionaries()->taskTags(), '#bug')`; w `update()` podaj KOMPLET tagów |
+| "zadania z tagiem #bug" | filtr `taskTagId` | `tasks()->list(['taskTagId' => $tagId])` (jeden tag na żądanie) |
 | "prowadzący: Piotr" | `ownerUserId` | `resolveUserId()` jak wykonawcy |
 
 ## Scenariusz flagowy: zadanie dla wielu osób z zespołu
@@ -135,6 +138,35 @@ $client->tasks()->create(new TaskInput(
 ));
 ```
 
+### Tagi zadania (API >= 2.21.0)
+
+`taskTagIds` to lista id ze słownika `dictionaries()->taskTags()`. W `create()`
+tagi są przypinane razem z zadaniem, w `update()` lista jest KOMPLETNA - zastępuje
+dotychczasowe tagi, więc żeby dołożyć tag, odczytaj zadanie i dopisz do jego listy.
+
+```php
+$bugTagId = findByName($client->dictionaries()->taskTags(), '#bug');   // null = dopytaj
+
+// Nowe zadanie od razu z tagiem.
+$client->tasks()->create(new TaskInput(
+    title: 'Poprawic eksport faktur',
+    assignedUserIds: [$userId],
+    taskTagIds: [$bugTagId],
+));
+
+// Dolozenie tagu do istniejacego zadania: komplet = obecne + nowy.
+$task = $client->tasks()->get($taskId);
+$client->tasks()->update($taskId, new TaskInput(
+    taskTagIds: array_values(array_unique([...$task->taskTagIds, $bugTagId])),
+));
+
+// Zdjecie wszystkich tagow.
+$client->tasks()->update($taskId, new TaskInput(taskTagIds: []));
+
+// Zadania z tagiem.
+$page = $client->tasks()->list(['taskTagId' => $bugTagId]);
+```
+
 ### Komentarz do zadania (zapis od API >= 2.7.0)
 
 Odczyt wątku działa wszędzie; dopisywanie i edycja komentarzy wymaga API >= 2.7.0.
@@ -230,6 +262,11 @@ $templates = $client->tasks()->templateCategories();   // kategorie szablonow
 - **Godzina terminu bywa niepodana.** Gdy użytkownik poda tylko dzień, przyjmij
   rozsądną godzinę (np. koniec dnia roboczego) ALBO dopytaj - nie wstawiaj cicho
   losowej wartości bez świadomości, że to założenie.
+- **`taskTagIds` w `update()` ZASTĘPUJE tagi (API >= 2.21.0).** Wysłanie samego
+  nowego tagu zdejmie pozostałe - dołożenie tagu to `[...$task->taskTagIds, $id]`,
+  a `[]` zdejmuje wszystkie. Nieznany tag to 422 na `taskTagIds` i nic się nie
+  zapisuje. Na instancji < 2.21.0 pole jest nieznane (422 `body.unknownField`),
+  a `Task->taskTagIds` wychodzi puste. Szablon zadania ma osobne pole `tagIds`.
 - **`create()` zwraca `WriteResult`** (`->id`, `->created`, `->warnings`,
   `isDuplicate()`), nie samo id. Szczegóły: sekcja "Co zwracają zapisy"
   w [ai_integration.md](../ai_integration.md).

@@ -12,9 +12,11 @@ foreach ($client->tasks()->iterate(['contractorId' => 12345]) as $task) {
     $task->title;
     $task->done;
     $task->assignedUserIds;    // wykonawcy (kanon 2.0.0)
+    $task->taskTagIds;         // tagi (dictionaries()->taskTags(), API >= 2.21.0)
     $task->dueDate;
 }
 $task = $client->tasks()->get(7);
+$tagged = $client->tasks()->list(['taskTagId' => 3]);   // zadania z tagiem (API >= 2.21.0)
 
 // Tworzenie: title + niepusta lista assignedUserIds wymagane
 $result = $client->tasks()->create(new TaskInput(
@@ -22,10 +24,12 @@ $result = $client->tasks()->create(new TaskInput(
     assignedUserIds: [7],
     contractorId: 12345,
     dueDate: '2026-09-01',
+    taskTagIds: [3],           // API >= 2.21.0
 ));
 
-// Aktualizacja
+// Aktualizacja. taskTagIds w PUT to KOMPLETNA lista docelowa ([] zdejmuje wszystkie)
 $client->tasks()->update($result->id ?? 0, new TaskInput(description: 'Zakres rozszerzony.'));
+$client->tasks()->update($result->id ?? 0, new TaskInput(taskTagIds: [3, 5]));
 
 // Komentarze (wątki przez parentCommentId)
 foreach ($client->tasks()->comments($result->id ?? 0) as $comment) {

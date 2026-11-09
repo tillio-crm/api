@@ -12,6 +12,9 @@ final readonly class Task
 {
     /**
      * @param list<int>            $assignedUserIds wykonawcy zadania
+     * @param list<int>            $taskTagIds      tagi zadania (słownik `dictionaries()->taskTags()`);
+     *                                              zapis przez `TaskInput::$taskTagIds` (od API 2.21.0 -
+     *                                              starsza instancja pola nie zwraca, wychodzi `[]`)
      * @param int|null             $contactId       osoba kontaktowa powiązana z zadaniem (od API 2.8.0)
      * @param int|null             $pipelineItemId  szansa sprzedaży powiązana z zadaniem (od API 2.13.0;
      *                                              starsza instancja pola nie zwraca - wychodzi null)
@@ -42,6 +45,7 @@ final readonly class Task
         public array $assignedUserIds,
         public array $customField,
         public array $raw = [],
+        public array $taskTagIds = [],
     ) {
     }
 
@@ -74,6 +78,7 @@ final readonly class Task
             assignedUserIds: Cast::intList($row['assignedUserIds'] ?? null),
             customField: Cast::map($row['customField'] ?? null),
             raw: $row,
+            taskTagIds: Cast::intList($row['taskTagIds'] ?? null),
         );
     }
 

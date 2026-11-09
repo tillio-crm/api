@@ -26,13 +26,14 @@ final readonly class Tasks extends Resource
      * `GET /v2/tasks` - strona listy.
      *
      * Filtry (komplet wg kontraktu): `contractorId`, `contactId`, `projectId`,
-     * `assignedUserId`, `done`, `archived`, `title`, `id`, `description`,
+     * `assignedUserId`, `taskTagId` (jeden tag na żądanie, id z
+     * `dictionaries()->taskTags()`), `done`, `archived`, `title`, `id`, `description`,
      * `taskTypeId`, `priority`, `leadId`, `pipelineItemId`, `ownerUserId`,
      * `creatorUserId`, `updatedAfter`/`updatedBefore`, `createdAfter`/`createdBefore`,
      * `customField[klucz]`, `sort`/`sortDir`, `page`/`limit`.
      *
-     * `pipelineItemId` wymaga API >= 2.13.0 - starsza instancja odrzuci nieznany
-     * parametr błędem 400.
+     * `pipelineItemId` wymaga API >= 2.13.0, `taskTagId` - API >= 2.21.0; starsza
+     * instancja odrzuci nieznany parametr błędem 400.
      *
      * @param array<string, mixed> $filters
      *
@@ -65,7 +66,8 @@ final readonly class Tasks extends Resource
 
     /**
      * `POST /v2/tasks` - nowe zadanie. Wymagane `title` i niepusta lista
-     * `assignedUserIds`.
+     * `assignedUserIds`. `taskTagIds` (API >= 2.21.0) przypina tagi razem
+     * z utworzeniem; nieznany tag = 422 i zadanie nie powstaje.
      *
      * @param TaskInput|array<string, mixed> $input
      */
@@ -81,6 +83,11 @@ final readonly class Tasks extends Resource
      * i innymi polami zapisuje wszystkie, a gdy drugi zapis nie przejdzie - 422
      * `task.partialUpdate` z listą pól zapisanych i odrzuconych. Do 2.13.0 takie
      * żądanie zapisywało SAM priorytet i odpowiadało 200.
+     *
+     * `taskTagIds` (API >= 2.21.0) to KOMPLETNA lista docelowa - zastępuje
+     * dotychczasowe tagi, `[]` zdejmuje wszystkie. Żeby dołożyć tag, wyślij
+     * `[...$task->taskTagIds, $nowyTagId]`. Rozjazd po zapisie (CRM przyjął
+     * zadanie, ale nie tagi) = `WriteResult::$warnings['taskTagIds']`.
      *
      * @param TaskInput|array<string, mixed> $input
      */

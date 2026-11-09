@@ -73,7 +73,8 @@ jednorazowe hasła) są zneutralizowane w kodzie, zanim żądanie w ogóle wyjdz
   i `products`, `OrderProductInput::$id`) od **2.19.0**, pola niestandardowe
   zamówień (`OrderInput::$customField`, `customFields()->list('order')`) oraz
   kolor i kolejność statusów zamówień (`color`, `order` w `createOrderStatus()`)
-  od **2.20.0**. Wywołanie
+  od **2.20.0**, tagi zadań (`Task::$taskTagIds`, `TaskInput::$taskTagIds`, filtr
+  `taskTagId`) od **2.21.0**. Wywołanie
   funkcji, której CRM instalacji jeszcze nie ma, kończy się `FeatureNotSupportedException`
   (501); trasy spoza wersji API - błędem 404, a nieznany na starszej instancji
   parametr zapytania - błędem 400.

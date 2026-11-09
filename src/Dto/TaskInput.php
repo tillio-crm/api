@@ -26,6 +26,10 @@ final readonly class TaskInput implements Arrayable
      * @param array<string, mixed>|null $customField     tylko przy tworzeniu
      * @param string|null               $createdAt       data utworzenia przy imporcie historycznym
      * @param int|null                  $creatorUserId   tylko przy tworzeniu
+     * @param list<int>|null            $taskTagIds      tagi ze słownika `dictionaries()->taskTags()` (od API 2.21.0,
+     *                                                   najwyżej 50). W `create()` przypinane razem z zadaniem,
+     *                                                   w `update()` to KOMPLETNA lista docelowa - `[]` zdejmuje
+     *                                                   wszystkie. Nieznany tag = 422 i nic się nie zapisuje
      */
     public function __construct(
         public ?string $title = null,
@@ -43,6 +47,7 @@ final readonly class TaskInput implements Arrayable
         public ?array $customField = null,
         public ?string $createdAt = null,
         public ?int $creatorUserId = null,
+        public ?array $taskTagIds = null,
     ) {
     }
 
@@ -61,6 +66,7 @@ final readonly class TaskInput implements Arrayable
             'startDate' => $this->startDate,
             'dueDate' => $this->dueDate,
             'taskStatusId' => $this->taskStatusId,
+            'taskTagIds' => $this->taskTagIds,
             'customField' => $this->customField,
             'createdAt' => $this->createdAt,
             'creatorUserId' => $this->creatorUserId,
